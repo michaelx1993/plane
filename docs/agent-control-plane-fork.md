@@ -50,6 +50,26 @@ and the community build manifest with temporary local env files:
 bash .github/acp-plane-release-smoke.sh
 ```
 
+Image release dry-run validates that the community build manifest renders all
+Plane service images under the fork-owned namespace/tag. Set
+`PLANE_RELEASE_IMAGE_BUILD=true` only when intentionally building all Plane
+service images:
+
+```bash
+DOCKERHUB_USER=michaelx1993 APP_RELEASE="$(git rev-parse --short=12 HEAD)" \
+bash .github/acp-plane-release-image.sh
+```
+
+Rollback smoke validates that the self-host community Compose file can be
+rendered against a previous `APP_RELEASE` tag under a fork-owned image
+namespace. It only checks application image rollback; database rollback remains
+a separate backup/restore operation:
+
+```bash
+DOCKERHUB_USER=michaelx1993 PLANE_ROLLBACK_APP_RELEASE=previous \
+bash .github/acp-plane-rollback-smoke.sh
+```
+
 This is a release configuration gate. It does not replace the real self-hosted
 PAT/API/webhook/rate-limit smoke that must run against a live Plane deployment.
 
@@ -92,5 +112,7 @@ Any Agent Control Plane-specific Plane change must:
 
 - Keep this document updated.
 - Pass `.github/acp-plane-fork-check.sh`.
+- Pass `.github/acp-plane-release-smoke.sh`.
 - Pass GitHub Actions `Agent Control Plane Fork Gate`.
+- Pass GitHub Actions `Agent Control Plane Release Smoke` when deployment files change.
 - Avoid storing Agent Control Plane secrets in this repository.
