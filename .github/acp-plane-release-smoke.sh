@@ -44,6 +44,8 @@ trap cleanup EXIT
 
 require_command docker
 require_file .github/acp-plane-fork-check.sh
+require_file .github/acp-plane-release-image.sh
+require_file .github/acp-plane-rollback-smoke.sh
 require_file docs/agent-control-plane-fork.md
 require_file docker-compose.yml
 require_file deployments/cli/community/build.yml
@@ -56,6 +58,8 @@ require_file apps/api/Dockerfile.api
 require_file apps/proxy/Dockerfile.ce
 
 bash .github/acp-plane-fork-check.sh
+bash .github/acp-plane-release-image.sh
+PLANE_ROLLBACK_APP_RELEASE=previous bash .github/acp-plane-rollback-smoke.sh
 
 create_if_missing .env "POSTGRES_USER=plane
 POSTGRES_DB=plane
@@ -81,5 +85,8 @@ docker compose -f deployments/cli/community/build.yml config --quiet
 
 grep -q 'image: ${DOCKERHUB_USER:-local}/plane-frontend:${APP_RELEASE:-latest}' deployments/cli/community/build.yml ||
   fail "community build manifest must keep local image namespace fallback"
+
+grep -q 'image: ${DOCKERHUB_USER:-makeplane}/plane-frontend:${APP_RELEASE:-stable}' deployments/cli/community/docker-compose.yml ||
+  fail "community compose manifest must support fork-owned image namespace override"
 
 echo "acp-plane-release-smoke: ok"

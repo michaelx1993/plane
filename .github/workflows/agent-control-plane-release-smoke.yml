@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - ".github/acp-plane-fork-check.sh"
+      - ".github/acp-plane-release-image.sh"
+      - ".github/acp-plane-rollback-smoke.sh"
       - ".github/acp-plane-release-smoke.sh"
       - ".github/workflows/agent-control-plane-release-smoke.yml"
       - "docs/agent-control-plane-fork.md"
