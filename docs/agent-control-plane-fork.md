@@ -43,6 +43,16 @@ Before changing deployment behavior, run:
 bash .github/acp-plane-fork-check.sh
 ```
 
+Release smoke validates the fork baseline, Compose parseability, core Dockerfiles,
+and the community build manifest with temporary local env files:
+
+```bash
+bash .github/acp-plane-release-smoke.sh
+```
+
+This is a release configuration gate. It does not replace the real self-hosted
+PAT/API/webhook/rate-limit smoke that must run against a live Plane deployment.
+
 ## Agent Control Plane Backlog
 
 ### P1: Repo Field
