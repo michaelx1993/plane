@@ -44,6 +44,7 @@ trap cleanup EXIT
 
 require_command docker
 require_file .github/acp-plane-fork-check.sh
+require_file .github/acp-plane-release-tag-smoke.sh
 require_file .github/acp-plane-release-image.sh
 require_file .github/acp-plane-rollback-smoke.sh
 require_file docs/agent-control-plane-fork.md
@@ -58,7 +59,8 @@ require_file apps/api/Dockerfile.api
 require_file apps/proxy/Dockerfile.ce
 
 bash .github/acp-plane-fork-check.sh
-bash .github/acp-plane-release-image.sh
+ACP_RELEASE_TAG=plane-release-smoke bash .github/acp-plane-release-tag-smoke.sh
+APP_RELEASE=plane-release-smoke bash .github/acp-plane-release-image.sh
 PLANE_ROLLBACK_APP_RELEASE=previous bash .github/acp-plane-rollback-smoke.sh
 
 create_if_missing .env "POSTGRES_USER=plane
