@@ -50,6 +50,15 @@ and the community build manifest with temporary local env files:
 bash .github/acp-plane-release-smoke.sh
 ```
 
+Release tag smoke validates the shared release tag before image or rollback
+gates consume it. By default it is dry-run only; set `ACP_CREATE_GIT_TAG=true`
+only in a controlled release shell:
+
+```bash
+ACP_RELEASE_TAG="plane-$(git rev-parse --short=12 HEAD)" \
+bash .github/acp-plane-release-tag-smoke.sh
+```
+
 Image release dry-run validates that the community build manifest renders all
 Plane service images under the fork-owned namespace/tag. Set
 `PLANE_RELEASE_IMAGE_BUILD=true` only when intentionally building all Plane
