@@ -56,11 +56,11 @@ grep -q 'docker/build-push-action' .github/workflows/release-components.yml ||
 grep -q 'platforms: linux/amd64,linux/arm64' .github/workflows/release-components.yml ||
   fail "component release workflow must publish amd64 and arm64 images where supported"
 
-grep -q 'platforms: linux/amd64' .github/workflows/release-components.yml ||
-  fail "component release workflow must allow component-specific platform overrides"
-
 grep -q 'dockerfile: apps/api/Dockerfile.api' .github/workflows/release-components.yml ||
   fail "backend Dockerfile path must be relative to the repository root"
+
+grep -q 'FROM --platform=$BUILDPLATFORM node:22-alpine AS base' apps/admin/Dockerfile.admin ||
+  fail "admin build stage must run on the builder platform to avoid QEMU hangs"
 
 grep -q 'dockerfile: apps/proxy/Dockerfile.ce' .github/workflows/release-components.yml ||
   fail "proxy Dockerfile path must be relative to the repository root"

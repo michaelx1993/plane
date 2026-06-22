@@ -37,7 +37,7 @@ jobs:
           - image: plane-admin
             context: .
             dockerfile: apps/admin/Dockerfile.admin
-            platforms: linux/amd64
+            platforms: linux/amd64,linux/arm64
           - image: plane-space
             context: .
             dockerfile: apps/space/Dockerfile.space
