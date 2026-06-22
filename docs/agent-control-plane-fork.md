@@ -100,6 +100,14 @@ DOCKERHUB_USER=michaelx1993 APP_RELEASE="$(git rev-parse --short=12 HEAD)" \
 bash .github/acp-plane-release-image.sh
 ```
 
+The `Release` workflow publishes the AIO image as `michaelxxx/plane:<version>`.
+It builds the web frontend from this fork first, then injects that local
+frontend image into the AIO build with `PLANE_FRONTEND_IMAGE`. The remaining AIO
+runtime images still use the configured upstream Plane source release
+(`plane_release`, default `v1.3.1`). This keeps fork-specific UI changes, such
+as the bilingual top navigation, inside the published AIO image without
+requiring a separate pushed frontend repository.
+
 Rollback smoke validates that the self-host community Compose file can be
 rendered against a previous `APP_RELEASE` tag under a fork-owned image
 namespace. It only checks application image rollback; database rollback remains
