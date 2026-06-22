@@ -42,4 +42,10 @@ grep -q 'tags:' .github/workflows/release-components.yml ||
 grep -q 'docker push' .github/workflows/release-components.yml ||
   fail "component release workflow must push component images"
 
+grep -q 'dockerfile: apps/api/Dockerfile.api' .github/workflows/release-components.yml ||
+  fail "backend Dockerfile path must be relative to the repository root"
+
+grep -q 'dockerfile: apps/proxy/Dockerfile.ce' .github/workflows/release-components.yml ||
+  fail "proxy Dockerfile path must be relative to the repository root"
+
 echo "acp-plane-component-release-smoke: ok"
