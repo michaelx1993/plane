@@ -8,7 +8,7 @@ import React from "react";
 import { Command } from "cmdk";
 import { observer } from "mobx-react";
 // plane imports
-import { SUPPORTED_LANGUAGES } from "@plane/i18n";
+import { BILINGUAL_LANGUAGES } from "@plane/i18n";
 // local imports
 import { PowerKModalCommandItem } from "../../modal/command-item";
 
@@ -21,7 +21,7 @@ export const PowerKPreferencesLanguagesMenu = observer(function PowerKPreference
 
   return (
     <Command.Group>
-      {SUPPORTED_LANGUAGES.map((language) => (
+      {BILINGUAL_LANGUAGES.map((language) => (
         <PowerKModalCommandItem key={language.value} onSelect={() => onSelect(language.value)} label={language.label} />
       ))}
     </Command.Group>

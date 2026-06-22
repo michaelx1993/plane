@@ -30,4 +30,9 @@ export const SUPPORTED_LANGUAGES: ILanguageOption[] = [
   { label: "Türkçe", value: "tr-TR" },
 ];
 
+export const BILINGUAL_LANGUAGES: ILanguageOption[] = [
+  { label: "English", value: "en" },
+  { label: "简体中文", value: "zh-CN" },
+];
+
 export const LANGUAGE_STORAGE_KEY = "userLanguage";

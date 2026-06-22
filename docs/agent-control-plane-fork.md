@@ -29,6 +29,37 @@ Forbidden responsibilities:
 - Direct access to Agent Control Plane PostgreSQL.
 - Worker token storage.
 
+## Fork UX Customizations
+
+This fork carries a small Plane web customization for the Agent Control Plane
+self-hosted deployment:
+
+- The workspace top navigation exposes a language switcher in the upper-right
+  toolbar.
+- The runtime language options are limited to English (`en`) and Simplified
+  Chinese (`zh-CN`) through `BILINGUAL_LANGUAGES`.
+- Profile preferences and Power-K language selection use the same bilingual
+  option source, so the visible language choices stay consistent.
+- The upstream "Star us on GitHub" top navigation link is removed from the
+  self-hosted web UI.
+
+Relevant implementation points:
+
+- `packages/i18n/src/constants/language.ts`
+- `packages/i18n/src/hooks/use-translation.ts`
+- `apps/web/ce/components/navigations/language-switcher.tsx`
+- `apps/web/ce/components/navigations/top-navigation-root.tsx`
+- `apps/web/core/components/settings/profile/content/pages/preferences/language-and-timezone-list.tsx`
+- `apps/web/core/components/power-k/ui/pages/preferences/languages-menu.tsx`
+
+Validation commands:
+
+```bash
+pnpm --filter=@plane/i18n test
+pnpm --filter=web test
+pnpm --filter=web build
+```
+
 ## Deployment Baseline
 
 First production path is Docker Compose:
