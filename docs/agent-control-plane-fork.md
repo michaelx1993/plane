@@ -108,6 +108,20 @@ runtime images still use the configured upstream Plane source release
 as the bilingual top navigation, inside the published AIO image without
 requiring a separate pushed frontend repository.
 
+The `Release Plane Components` workflow publishes the multi-container Plane
+application images from this fork for in-place Compose upgrades:
+
+- `michaelxxx/plane-frontend:<version>`
+- `michaelxxx/plane-backend:<version>`
+- `michaelxxx/plane-admin:<version>`
+- `michaelxxx/plane-space:<version>`
+- `michaelxxx/plane-live:<version>`
+- `michaelxxx/plane-proxy:<version>`
+
+Use these component images when preserving the existing multi-container
+deployment shape. PostgreSQL, Valkey/Redis, RabbitMQ, and MinIO remain community
+infrastructure images.
+
 Rollback smoke validates that the self-host community Compose file can be
 rendered against a previous `APP_RELEASE` tag under a fork-owned image
 namespace. It only checks application image rollback; database rollback remains
