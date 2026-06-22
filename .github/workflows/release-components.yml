@@ -1,0 +1,102 @@
+name: Release Plane Components
+
+on:
+  push:
+    tags:
+      - "plane-components-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version and Docker tag"
+        required: true
+        default: "0.0.1"
+      image_namespace:
+        description: "Docker image namespace"
+        required: true
+        default: "michaelxxx"
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    name: Publish Plane component images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: plane-frontend
+            context: .
+            dockerfile: apps/web/Dockerfile.web
+          - image: plane-backend
+            context: apps/api
+            dockerfile: Dockerfile.api
+          - image: plane-admin
+            context: .
+            dockerfile: apps/admin/Dockerfile.admin
+          - image: plane-space
+            context: .
+            dockerfile: apps/space/Dockerfile.space
+          - image: plane-live
+            context: .
+            dockerfile: apps/live/Dockerfile.live
+          - image: plane-proxy
+            context: apps/proxy
+            dockerfile: Dockerfile.ce
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          version="${{ inputs.version }}"
+          if [[ -z "$version" ]]; then
+            version="${GITHUB_REF_NAME#plane-components-v}"
+            version="${version#v}"
+          fi
+
+          image_namespace="${{ inputs.image_namespace }}"
+          if [[ -z "$image_namespace" ]]; then
+            image_namespace="michaelxxx"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+([._-][A-Za-z0-9][A-Za-z0-9._-]*)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "image_namespace=${image_namespace}" >> "$GITHUB_OUTPUT"
+          echo "image=${image_namespace}/${{ matrix.image }}:${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build component image
+        run: |
+          docker build \
+            --file "${{ matrix.dockerfile }}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}" \
+            --tag "${{ steps.meta.outputs.image }}" \
+            "${{ matrix.context }}"
+
+      - name: Push component image
+        run: docker push "${{ steps.meta.outputs.image }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Component image"
+            echo ""
+            echo "- ${{ steps.meta.outputs.image }}"
+            echo ""
+            echo "Source: ${{ github.repository }}@${GITHUB_SHA}"
+          } >> "$GITHUB_STEP_SUMMARY"
