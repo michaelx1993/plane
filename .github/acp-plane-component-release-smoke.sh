@@ -39,8 +39,22 @@ done
 grep -q 'tags:' .github/workflows/release-components.yml ||
   fail "component release workflow must support tag-triggered releases"
 
-grep -q 'docker push' .github/workflows/release-components.yml ||
+if ! grep -q 'docker push' .github/workflows/release-components.yml &&
+  ! grep -q 'push: true' .github/workflows/release-components.yml; then
   fail "component release workflow must push component images"
+fi
+
+grep -q 'docker/setup-qemu-action' .github/workflows/release-components.yml ||
+  fail "component release workflow must set up QEMU for cross-platform builds"
+
+grep -q 'docker/setup-buildx-action' .github/workflows/release-components.yml ||
+  fail "component release workflow must set up Docker Buildx"
+
+grep -q 'docker/build-push-action' .github/workflows/release-components.yml ||
+  fail "component release workflow must use Docker Buildx publishing"
+
+grep -q 'platforms: linux/amd64,linux/arm64' .github/workflows/release-components.yml ||
+  fail "component release workflow must publish amd64 and arm64 images"
 
 grep -q 'dockerfile: apps/api/Dockerfile.api' .github/workflows/release-components.yml ||
   fail "backend Dockerfile path must be relative to the repository root"
