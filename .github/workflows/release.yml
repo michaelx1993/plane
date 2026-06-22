@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "plane-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version and Docker tag"
+        required: true
+        default: "0.0.1"
+      plane_release:
+        description: "Upstream Plane image tag used as AIO source"
+        required: true
+        default: "v1.3.1"
+      image_repository:
+        description: "Docker image repository"
+        required: true
+        default: "michaelxxx/plane"
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    name: Publish Plane AIO image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          version="${{ inputs.version }}"
+          if [[ -z "$version" ]]; then
+            version="${GITHUB_REF_NAME#plane-v}"
+            version="${version#v}"
+          fi
+
+          plane_release="${{ inputs.plane_release }}"
+          if [[ -z "$plane_release" ]]; then
+            plane_release="v1.3.1"
+          fi
+
+          image_repository="${{ inputs.image_repository }}"
+          if [[ -z "$image_repository" ]]; then
+            image_repository="michaelxxx/plane"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+([._-][A-Za-z0-9][A-Za-z0-9._-]*)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+
+          if [[ ! "$plane_release" =~ ^v[0-9]+[.][0-9]+[.][0-9]+([._-][A-Za-z0-9][A-Za-z0-9._-]*)?$ ]]; then
+            echo "Invalid Plane source release: $plane_release" >&2
+            exit 1
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "plane_release=${plane_release}" >> "$GITHUB_OUTPUT"
+          echo "image_repository=${image_repository}" >> "$GITHUB_OUTPUT"
+          echo "image=${image_repository}:${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Prepare AIO build context
+        run: |
+          bash deployments/aio/community/build.sh \
+            --release "${{ steps.meta.outputs.plane_release }}" \
+            --image-name "${{ steps.meta.outputs.image }}"
+
+      - name: Build AIO image
+        run: |
+          docker build \
+            --file deployments/aio/community/Dockerfile \
+            --build-arg PLANE_VERSION="${{ steps.meta.outputs.plane_release }}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}" \
+            --tag "${{ steps.meta.outputs.image }}" \
+            --tag "${{ steps.meta.outputs.image_repository }}:latest" \
+            deployments/aio/community
+
+      - name: Push AIO image
+        run: |
+          docker push "${{ steps.meta.outputs.image }}"
+          docker push "${{ steps.meta.outputs.image_repository }}:latest"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Docker image"
+            echo ""
+            echo "- ${{ steps.meta.outputs.image }}"
+            echo "- ${{ steps.meta.outputs.image_repository }}:latest"
+            echo ""
+            echo "Plane source release: ${{ steps.meta.outputs.plane_release }}"
+          } >> "$GITHUB_STEP_SUMMARY"
