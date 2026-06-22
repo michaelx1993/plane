@@ -91,4 +91,13 @@ grep -q 'image: ${DOCKERHUB_USER:-local}/plane-frontend:${APP_RELEASE:-latest}' 
 grep -q 'image: ${DOCKERHUB_USER:-makeplane}/plane-frontend:${APP_RELEASE:-stable}' deployments/cli/community/docker-compose.yml ||
   fail "community compose manifest must support fork-owned image namespace override"
 
+grep -q 'ARG PLANE_FRONTEND_IMAGE=' deployments/aio/community/Dockerfile ||
+  fail "AIO Dockerfile must support a fork-built frontend image"
+
+grep -q -- '--build-arg PLANE_FRONTEND_IMAGE=' .github/workflows/release.yml ||
+  fail "release workflow must inject the fork-built frontend into AIO"
+
+grep -q 'Build customized web frontend image' .github/workflows/release.yml ||
+  fail "release workflow must build web frontend from this repository"
+
 echo "acp-plane-release-smoke: ok"

@@ -1,4 +1,5 @@
 ARG PLANE_VERSION=v0.27.1
+ARG PLANE_FRONTEND_IMAGE=makeplane/plane-frontend:v0.27.1
 FROM --platform=$BUILDPLATFORM tonistiigi/binfmt AS binfmt
 
 # **************************************************
@@ -6,7 +7,7 @@ FROM --platform=$BUILDPLATFORM tonistiigi/binfmt AS binfmt
 # **************************************************
 FROM node:22-alpine AS node
 
-FROM makeplane/plane-frontend:${PLANE_VERSION} AS web-img
+FROM ${PLANE_FRONTEND_IMAGE} AS web-img
 FROM makeplane/plane-backend:${PLANE_VERSION} AS backend-img
 FROM makeplane/plane-space:${PLANE_VERSION} AS space-img
 FROM makeplane/plane-admin:${PLANE_VERSION} AS admin-img
