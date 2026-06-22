@@ -54,7 +54,10 @@ grep -q 'docker/build-push-action' .github/workflows/release-components.yml ||
   fail "component release workflow must use Docker Buildx publishing"
 
 grep -q 'platforms: linux/amd64,linux/arm64' .github/workflows/release-components.yml ||
-  fail "component release workflow must publish amd64 and arm64 images"
+  fail "component release workflow must publish amd64 and arm64 images where supported"
+
+grep -q 'platforms: linux/amd64' .github/workflows/release-components.yml ||
+  fail "component release workflow must allow component-specific platform overrides"
 
 grep -q 'dockerfile: apps/api/Dockerfile.api' .github/workflows/release-components.yml ||
   fail "backend Dockerfile path must be relative to the repository root"
