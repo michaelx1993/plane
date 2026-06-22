@@ -31,7 +31,7 @@ jobs:
             dockerfile: apps/web/Dockerfile.web
           - image: plane-backend
             context: apps/api
-            dockerfile: Dockerfile.api
+            dockerfile: apps/api/Dockerfile.api
           - image: plane-admin
             context: .
             dockerfile: apps/admin/Dockerfile.admin
@@ -43,7 +43,7 @@ jobs:
             dockerfile: apps/live/Dockerfile.live
           - image: plane-proxy
             context: apps/proxy
-            dockerfile: Dockerfile.ce
+            dockerfile: apps/proxy/Dockerfile.ce
 
     steps:
       - name: Checkout
