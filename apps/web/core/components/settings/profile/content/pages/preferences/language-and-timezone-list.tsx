@@ -6,7 +6,7 @@
 
 import { observer } from "mobx-react";
 // plane imports
-import { SUPPORTED_LANGUAGES, useTranslation } from "@plane/i18n";
+import { BILINGUAL_LANGUAGES, useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { CustomSelect } from "@plane/ui";
 // components
@@ -63,7 +63,7 @@ export const ProfileSettingsLanguageAndTimezonePreferencesList = observer(
     };
 
     const getLanguageLabel = (value: string) => {
-      const selectedLanguage = SUPPORTED_LANGUAGES.find((l) => l.value === value);
+      const selectedLanguage = BILINGUAL_LANGUAGES.find((l) => l.value === value);
       if (!selectedLanguage) return value;
       return selectedLanguage.label;
     };
@@ -88,7 +88,7 @@ export const ProfileSettingsLanguageAndTimezonePreferencesList = observer(
               input
               placement="bottom-end"
             >
-              {SUPPORTED_LANGUAGES.map((item) => (
+              {BILINGUAL_LANGUAGES.map((item) => (
                 <CustomSelect.Option key={item.value} value={item.value}>
                   {item.label}
                 </CustomSelect.Option>
