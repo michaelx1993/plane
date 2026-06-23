@@ -30,5 +30,13 @@ assert.ok(
   languageSwitcherSource.includes("updateUserProfile({ language: value })"),
   "language switcher should persist the selected language"
 );
+assert.ok(
+  languageSwitcherSource.includes("const { changeLanguage, currentLocale } = useTranslation()"),
+  "language switcher should read the i18n changeLanguage hook"
+);
+assert.ok(
+  languageSwitcherSource.includes("changeLanguage(value);"),
+  "language switcher should update i18n immediately when the selected language changes"
+);
 
 console.log("top_navigation_language_switcher=passed");

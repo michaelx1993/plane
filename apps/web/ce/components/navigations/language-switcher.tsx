@@ -18,7 +18,7 @@ const shortLanguageLabels: Record<string, string> = {
 };
 
 export const TopNavigationLanguageSwitcher = observer(function TopNavigationLanguageSwitcher() {
-  const { currentLocale } = useTranslation();
+  const { changeLanguage, currentLocale } = useTranslation();
   const { data: profile, updateUserProfile } = useUserProfile();
 
   const selectedLanguage = profile?.language || currentLocale || FALLBACK_LANGUAGE;
@@ -26,6 +26,7 @@ export const TopNavigationLanguageSwitcher = observer(function TopNavigationLang
 
   const handleLanguageChange = async (value: string) => {
     if (value === selectedLanguage) return;
+    changeLanguage(value);
     await updateUserProfile({ language: value });
   };
 
