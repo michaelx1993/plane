@@ -19,6 +19,14 @@ assert.ok(
   topNavigationSource.includes("TopNavigationLanguageSwitcher"),
   "top navigation should render the language switcher"
 );
+assert.ok(
+  topNavigationSource.includes('className="shrink-0 md:hidden"'),
+  "top navigation should render a dedicated mobile language switcher"
+);
+assert.ok(
+  topNavigationSource.includes('className="hidden flex-1 shrink-0 items-center justify-end gap-1 md:flex"'),
+  "top navigation should keep desktop actions hidden on mobile"
+);
 assert.ok(!topNavigationSource.includes("StarUsOnGitHubLink"), "top navigation should not render the GitHub link");
 assert.ok(!topNavigationSource.includes("star-us-link"), "top navigation should not import the GitHub link");
 
@@ -27,7 +35,7 @@ assert.ok(
   "language switcher should use the bilingual language list"
 );
 assert.ok(
-  languageSwitcherSource.includes("updateUserProfile({ language: value })"),
+  languageSwitcherSource.includes("updateUserProfile({ language })"),
   "language switcher should persist the selected language"
 );
 assert.ok(
@@ -35,8 +43,28 @@ assert.ok(
   "language switcher should read the i18n changeLanguage hook"
 );
 assert.ok(
-  languageSwitcherSource.includes("changeLanguage(value);"),
+  languageSwitcherSource.includes('import type { TLanguage } from "@plane/i18n";'),
+  "language switcher should use the i18n language type"
+);
+assert.ok(
+  languageSwitcherSource.includes("const language = value as TLanguage;"),
+  "language switcher should cast CustomSelect values to the i18n language type"
+);
+assert.ok(
+  languageSwitcherSource.includes("changeLanguage(language);"),
   "language switcher should update i18n immediately when the selected language changes"
+);
+
+const topNavPowerKPath = path.join(appRoot, "core/components/navigation/top-nav-power-k.tsx");
+const topNavPowerKSource = fs.readFileSync(topNavPowerKPath, "utf-8");
+
+assert.ok(
+  topNavPowerKSource.includes("relative min-w-0"),
+  "top navigation search should be allowed to shrink on mobile"
+);
+assert.ok(
+  topNavPowerKSource.includes("w-full items-center") && topNavPowerKSource.includes("md:w-[364px]"),
+  "top navigation search should only use fixed width on desktop"
 );
 
 console.log("top_navigation_language_switcher=passed");

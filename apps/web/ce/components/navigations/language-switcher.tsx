@@ -8,11 +8,12 @@ import { observer } from "mobx-react";
 import { Languages } from "lucide-react";
 // plane imports
 import { BILINGUAL_LANGUAGES, FALLBACK_LANGUAGE, useTranslation } from "@plane/i18n";
+import type { TLanguage } from "@plane/i18n";
 import { CustomSelect } from "@plane/ui";
 // hooks
 import { useUserProfile } from "@/hooks/store/user";
 
-const shortLanguageLabels: Record<string, string> = {
+const shortLanguageLabels: Partial<Record<TLanguage, string>> = {
   en: "EN",
   "zh-CN": "中文",
 };
@@ -21,13 +22,14 @@ export const TopNavigationLanguageSwitcher = observer(function TopNavigationLang
   const { changeLanguage, currentLocale } = useTranslation();
   const { data: profile, updateUserProfile } = useUserProfile();
 
-  const selectedLanguage = profile?.language || currentLocale || FALLBACK_LANGUAGE;
+  const selectedLanguage = (profile?.language || currentLocale || FALLBACK_LANGUAGE) as TLanguage;
   const selectedLabel = shortLanguageLabels[selectedLanguage] ?? selectedLanguage;
 
   const handleLanguageChange = async (value: string) => {
-    if (value === selectedLanguage) return;
-    changeLanguage(value);
-    await updateUserProfile({ language: value });
+    const language = value as TLanguage;
+    if (language === selectedLanguage) return;
+    changeLanguage(language);
+    await updateUserProfile({ language });
   };
 
   return (
