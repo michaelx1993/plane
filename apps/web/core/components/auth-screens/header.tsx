@@ -17,15 +17,15 @@ import { AuthLanguageSwitcher } from "./language-switcher";
 
 const authContentMap = {
   [EAuthModes.SIGN_IN]: {
-    pageTitle: "Sign up",
+    pageTitle: "auth.common.sign_up",
     text: "auth.common.new_to_plane",
-    linkText: "Sign up",
+    linkText: "auth.common.sign_up",
     linkHref: "/sign-up",
   },
   [EAuthModes.SIGN_UP]: {
-    pageTitle: "Sign in",
+    pageTitle: "auth.common.sign_in",
     text: "auth.common.already_have_an_account",
-    linkText: "Sign in",
+    linkText: "auth.common.sign_in",
     linkHref: "/sign-in",
   },
 };

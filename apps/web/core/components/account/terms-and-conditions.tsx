@@ -7,6 +7,7 @@
 import React from "react";
 import Link from "next/link";
 import { EAuthModes } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 
 interface TermsAndConditionsProps {
   authType?: EAuthModes;
@@ -19,8 +20,8 @@ const LEGAL_LINKS = {
 } as const;
 
 const MESSAGES = {
-  [EAuthModes.SIGN_UP]: "By creating an account",
-  [EAuthModes.SIGN_IN]: "By signing in",
+  [EAuthModes.SIGN_UP]: "auth.terms.sign_up_intro",
+  [EAuthModes.SIGN_IN]: "auth.terms.sign_in_intro",
 } as const;
 
 // Reusable link component to reduce duplication
@@ -33,12 +34,14 @@ function LegalLink({ href, children }: { href: string; children: React.ReactNode
 }
 
 export function TermsAndConditions({ authType = EAuthModes.SIGN_IN }: TermsAndConditionsProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex items-center justify-center">
       <p className="text-center text-13 whitespace-pre-line text-tertiary">
-        {`${MESSAGES[authType]}, you understand and agree to \n our `}
-        <LegalLink href={LEGAL_LINKS.termsOfService}>Terms of Service</LegalLink> and{" "}
-        <LegalLink href={LEGAL_LINKS.privacyPolicy}>Privacy Policy</LegalLink>.
+        {`${t(MESSAGES[authType])}, ${t("auth.terms.agreement")} \n `}
+        <LegalLink href={LEGAL_LINKS.termsOfService}>{t("auth.terms.terms_of_service")}</LegalLink>{" "}
+        {t("auth.terms.and")} <LegalLink href={LEGAL_LINKS.privacyPolicy}>{t("auth.terms.privacy_policy")}</LegalLink>.
       </p>
     </div>
   );
