@@ -27,30 +27,30 @@ type TAuthHeader = {
 const Titles = {
   [EAuthModes.SIGN_IN]: {
     [EAuthSteps.EMAIL]: {
-      header: "Work in all dimensions.",
-      subHeader: "Welcome back to Plane.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_in_sub_header",
     },
     [EAuthSteps.PASSWORD]: {
-      header: "Work in all dimensions.",
-      subHeader: "Welcome back to Plane.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_in_sub_header",
     },
     [EAuthSteps.UNIQUE_CODE]: {
-      header: "Work in all dimensions.",
-      subHeader: "Welcome back to Plane.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_in_sub_header",
     },
   },
   [EAuthModes.SIGN_UP]: {
     [EAuthSteps.EMAIL]: {
-      header: "Work in all dimensions.",
-      subHeader: "Create your Plane account.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_up_sub_header",
     },
     [EAuthSteps.PASSWORD]: {
-      header: "Work in all dimensions.",
-      subHeader: "Create your Plane account.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_up_sub_header",
     },
     [EAuthSteps.UNIQUE_CODE]: {
-      header: "Work in all dimensions.",
-      subHeader: "Create your Plane account.",
+      header: "auth.homepage.hero.header",
+      subHeader: "auth.homepage.hero.sign_up_sub_header",
     },
   },
 };
@@ -74,11 +74,11 @@ export const AuthHeader = observer(function AuthHeader(props: TAuthHeader) {
   const getHeaderSubHeader = (
     step: EAuthSteps,
     mode: EAuthModes,
-    invitation: IWorkspaceMemberInvitation | undefined,
+    workspaceInvitation: IWorkspaceMemberInvitation | undefined,
     email: string | undefined
   ) => {
-    if (invitation && email && invitation.email === email && invitation.workspace) {
-      const workspace = invitation.workspace;
+    if (workspaceInvitation && email && workspaceInvitation.email === email && workspaceInvitation.workspace) {
+      const workspace = workspaceInvitation.workspace;
       return {
         header: (
           <div className="relative inline-flex items-center gap-2">
@@ -89,8 +89,8 @@ export const AuthHeader = observer(function AuthHeader(props: TAuthHeader) {
         ),
         subHeader:
           mode == EAuthModes.SIGN_UP
-            ? "Create an account to start managing work with your team."
-            : "Log in to start managing work with your team.",
+            ? "auth.homepage.hero.invite_sign_up_sub_header"
+            : "auth.homepage.hero.invite_sign_in_sub_header",
       };
     }
 
@@ -106,7 +106,7 @@ export const AuthHeader = observer(function AuthHeader(props: TAuthHeader) {
       </div>
     );
 
-  return <AuthHeaderBase subHeader={subHeader} header={header} />;
+  return <AuthHeaderBase subHeader={t(subHeader)} header={typeof header === "string" ? t(header) : header} />;
 });
 
 type TAuthHeaderBase = {

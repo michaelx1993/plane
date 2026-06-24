@@ -13,11 +13,19 @@ const topNavigationPath = path.join(appRoot, "ce/components/navigations/top-navi
 const languageSwitcherPath = path.join(appRoot, "ce/components/navigations/language-switcher.tsx");
 const authHeaderPath = path.join(appRoot, "core/components/auth-screens/header.tsx");
 const authLanguageSwitcherPath = path.join(appRoot, "core/components/auth-screens/language-switcher.tsx");
+const authFormHeaderPath = path.join(appRoot, "core/components/account/auth-forms/auth-header.tsx");
+const authFormRootPath = path.join(appRoot, "core/components/account/auth-forms/auth-root.tsx");
+const authTermsPath = path.join(appRoot, "core/components/account/terms-and-conditions.tsx");
+const authFooterPath = path.join(appRoot, "core/components/auth-screens/footer.tsx");
 
 const topNavigationSource = fs.readFileSync(topNavigationPath, "utf-8");
 const languageSwitcherSource = fs.readFileSync(languageSwitcherPath, "utf-8");
 const authHeaderSource = fs.readFileSync(authHeaderPath, "utf-8");
 const authLanguageSwitcherSource = fs.readFileSync(authLanguageSwitcherPath, "utf-8");
+const authFormHeaderSource = fs.readFileSync(authFormHeaderPath, "utf-8");
+const authFormRootSource = fs.readFileSync(authFormRootPath, "utf-8");
+const authTermsSource = fs.readFileSync(authTermsPath, "utf-8");
+const authFooterSource = fs.readFileSync(authFooterPath, "utf-8");
 
 assert.ok(
   topNavigationSource.includes("TopNavigationLanguageSwitcher"),
@@ -87,6 +95,33 @@ assert.ok(
 assert.ok(
   !authLanguageSwitcherSource.includes("updateUserProfile"),
   "auth language switcher should not require an authenticated user profile"
+);
+assert.ok(
+  authFormHeaderSource.includes("auth.homepage.hero.header") &&
+    authFormHeaderSource.includes("auth.homepage.hero.sign_in_sub_header") &&
+    authFormHeaderSource.includes("auth.homepage.hero.sign_up_sub_header"),
+  "auth homepage hero copy should be driven by i18n keys"
+);
+assert.ok(
+  !authFormHeaderSource.includes("Work in all dimensions.") &&
+    !authFormHeaderSource.includes("Welcome back to Plane.") &&
+    !authFormHeaderSource.includes("Create your Plane account."),
+  "auth homepage hero should not hard-code English copy"
+);
+assert.ok(authTermsSource.includes("auth.terms.sign_in_intro"), "auth terms should use i18n keys");
+assert.ok(
+  !authTermsSource.includes("By signing in") && !authTermsSource.includes("By creating an account"),
+  "auth terms should not hard-code English copy"
+);
+assert.ok(authFooterSource.includes("auth.footer.trusted_by"), "auth footer should use an i18n key");
+assert.ok(!authFooterSource.includes("Join 10,000+ teams"), "auth footer should not hard-code English copy");
+assert.ok(
+  authFormRootSource.includes("auth.common.sign_up") && authFormRootSource.includes("auth.common.sign_in"),
+  "auth OAuth action text should use i18n keys"
+);
+assert.ok(
+  !authFormRootSource.includes('"Sign up"') && !authFormRootSource.includes('"Sign in"'),
+  "auth OAuth action text should not hard-code English copy"
 );
 
 console.log("top_navigation_language_switcher=passed");
