@@ -13,6 +13,7 @@ import { PlaneLockup } from "@plane/propel/icons";
 import { PageHead } from "@/components/core/page-title";
 import { EAuthModes } from "@/helpers/authentication.helper";
 import { useInstance } from "@/hooks/store/use-instance";
+import { AuthLanguageSwitcher } from "./language-switcher";
 
 const authContentMap = {
   [EAuthModes.SIGN_IN]: {
@@ -39,23 +40,27 @@ export const AuthHeader = observer(function AuthHeader({ type }: AuthHeaderProps
   const { config } = useInstance();
   // derived values
   const enableSignUpConfig = config?.enable_signup ?? false;
+  const authLink = enableSignUpConfig ? (
+    <div className="flex flex-col items-end text-center text-13 font-medium text-tertiary sm:flex-row sm:items-center sm:gap-2">
+      <span className="text-body-sm-regular text-tertiary">{t(authContentMap[type].text)}</span>
+      <Link
+        data-ph-element={AUTH_TRACKER_ELEMENTS.NAVIGATE_TO_SIGN_UP}
+        href={authContentMap[type].linkHref}
+        className="text-body-sm-semibold text-accent-primary hover:underline"
+      >
+        {t(authContentMap[type].linkText)}
+      </Link>
+    </div>
+  ) : null;
 
   return (
     <AuthHeaderBase
       pageTitle={t(authContentMap[type].pageTitle)}
       additionalAction={
-        enableSignUpConfig && (
-          <div className="flex flex-col items-end text-center text-13 font-medium text-tertiary sm:flex-row sm:items-center sm:gap-2">
-            <span className="text-body-sm-regular text-tertiary">{t(authContentMap[type].text)}</span>
-            <Link
-              data-ph-element={AUTH_TRACKER_ELEMENTS.NAVIGATE_TO_SIGN_UP}
-              href={authContentMap[type].linkHref}
-              className="text-body-sm-semibold text-accent-primary hover:underline"
-            >
-              {t(authContentMap[type].linkText)}
-            </Link>
-          </div>
-        )
+        <div className="flex items-center gap-2">
+          {authLink}
+          <AuthLanguageSwitcher />
+        </div>
       }
     />
   );

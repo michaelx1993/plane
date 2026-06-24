@@ -11,9 +11,13 @@ import path from "node:path";
 const appRoot = path.resolve(import.meta.dirname, "../../..");
 const topNavigationPath = path.join(appRoot, "ce/components/navigations/top-navigation-root.tsx");
 const languageSwitcherPath = path.join(appRoot, "ce/components/navigations/language-switcher.tsx");
+const authHeaderPath = path.join(appRoot, "core/components/auth-screens/header.tsx");
+const authLanguageSwitcherPath = path.join(appRoot, "core/components/auth-screens/language-switcher.tsx");
 
 const topNavigationSource = fs.readFileSync(topNavigationPath, "utf-8");
 const languageSwitcherSource = fs.readFileSync(languageSwitcherPath, "utf-8");
+const authHeaderSource = fs.readFileSync(authHeaderPath, "utf-8");
+const authLanguageSwitcherSource = fs.readFileSync(authLanguageSwitcherPath, "utf-8");
 
 assert.ok(
   topNavigationSource.includes("TopNavigationLanguageSwitcher"),
@@ -65,6 +69,24 @@ assert.ok(
 assert.ok(
   topNavPowerKSource.includes("w-full items-center") && topNavPowerKSource.includes("md:w-[364px]"),
   "top navigation search should only use fixed width on desktop"
+);
+
+assert.ok(authHeaderSource.includes("AuthLanguageSwitcher"), "auth header should render the language switcher");
+assert.ok(
+  authHeaderSource.includes("<AuthLanguageSwitcher />"),
+  "auth homepage should expose the language switcher before sign in"
+);
+assert.ok(
+  authLanguageSwitcherSource.includes("BILINGUAL_LANGUAGES"),
+  "auth language switcher should use the bilingual language list"
+);
+assert.ok(
+  authLanguageSwitcherSource.includes("changeLanguage(language);"),
+  "auth language switcher should update i18n immediately"
+);
+assert.ok(
+  !authLanguageSwitcherSource.includes("updateUserProfile"),
+  "auth language switcher should not require an authenticated user profile"
 );
 
 console.log("top_navigation_language_switcher=passed");
