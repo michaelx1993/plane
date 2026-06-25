@@ -20,6 +20,7 @@ from plane.api.serializers import (
     AgentRepositorySerializer,
     AgentRoleSerializer,
     AgentUserAgentSerializer,
+    AgentUserSecretKeySerializer,
     AgentWorkerCardSerializer,
 )
 from plane.db.models import (
@@ -31,6 +32,7 @@ from plane.db.models import (
     AgentRepository,
     AgentRole,
     AgentUserAgent,
+    AgentUserSecretKey,
     AgentWorkerCard,
     Workspace,
 )
@@ -223,6 +225,18 @@ class AgentWorkerCardDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
     model = AgentWorkerCard
     serializer_class = AgentWorkerCardSerializer
     entity_type = "agent_worker_card"
+
+
+class AgentUserSecretKeyListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentUserSecretKey
+    serializer_class = AgentUserSecretKeySerializer
+    entity_type = "agent_user_secret_key"
+
+
+class AgentUserSecretKeyDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentUserSecretKey
+    serializer_class = AgentUserSecretKeySerializer
+    entity_type = "agent_user_secret_key"
 
 
 class AgentProjectWorkspaceListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):

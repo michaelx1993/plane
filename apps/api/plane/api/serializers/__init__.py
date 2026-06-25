@@ -13,6 +13,7 @@ from .agent import (
     AgentRepositorySerializer,
     AgentRoleSerializer,
     AgentUserAgentSerializer,
+    AgentUserSecretKeySerializer,
     AgentWorkerCardSerializer,
 )
 from .project import (

@@ -25,14 +25,26 @@ import {
   AgentPlatformService,
   type AgentPlatformWorkspaceSnapshot,
   type AgentPrompt,
-  type AgentPromptType,
+  type AgentPromptKind,
+  type AgentPromptScope,
+  type AgentPromptVersionPolicy,
 } from "@/services/agent-platform.service";
 // local imports
 import type { Route } from "./+types/page";
 import { AgentsWorkspaceSettingsHeader } from "./header";
 
 const agentPlatformService = new AgentPlatformService();
-const promptTypes: AgentPromptType[] = ["agent", "project", "role", "playbook_task", "business_system"];
+const promptScopes: AgentPromptScope[] = ["agent", "project", "role", "playbook", "task", "workspace"];
+const promptKinds: AgentPromptKind[] = [
+  "instruction",
+  "context",
+  "constraint",
+  "workflow",
+  "style",
+  "safety",
+  "output_contract",
+];
+const versionPolicies: AgentPromptVersionPolicy[] = ["latest", "pinned"];
 
 function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
   const { workspaceSlug } = params;
@@ -83,8 +95,10 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
         key: valueOf(formData, "key"),
         name: valueOf(formData, "name"),
         description: valueOf(formData, "description"),
-        prompt_type: valueOf(formData, "prompt_type") as AgentPromptType,
+        scope: valueOf(formData, "scope") as AgentPromptScope,
+        kind: valueOf(formData, "kind") as AgentPromptKind,
         visibility: "workspace",
+        status: "active",
       });
       await agentPlatformService.createPromptVersion(workspaceSlug, {
         prompt: prompt.id,
@@ -112,10 +126,24 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
         agent: valueOf(formData, "agent"),
         prompt: valueOf(formData, "prompt"),
         prompt_version: optionalValueOf(formData, "prompt_version"),
+        target_type: "user_agent",
+        version_policy: valueOf(formData, "version_policy") as AgentPromptVersionPolicy,
         role: optionalValueOf(formData, "role"),
         slot: valueOf(formData, "slot") || "agent",
         sort_order: Number(valueOf(formData, "sort_order") || 0),
         is_required: formData.get("is_required") === "on",
+      });
+    });
+  };
+
+  const handleCreateSecretKey = async (formData: FormData) => {
+    await submit("secret", async () => {
+      await agentPlatformService.createSecretKey(workspaceSlug, {
+        key: valueOf(formData, "key"),
+        description: valueOf(formData, "description"),
+        provider: valueOf(formData, "provider") || "env",
+        provider_ref: valueOf(formData, "provider_ref"),
+        status: "active",
       });
     });
   };
@@ -182,11 +210,8 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
             <Form onSubmit={handleCreatePrompt}>
               <Field name="key" label={t("workspace_settings.settings.agents.key")} placeholder="rd-agent-base" />
               <Field name="name" label={t("common.name")} placeholder="RD Agent Base" />
-              <Select
-                name="prompt_type"
-                label={t("workspace_settings.settings.agents.prompt_type")}
-                values={promptTypes}
-              />
+              <Select name="scope" label={t("workspace_settings.settings.agents.prompt_scope")} values={promptScopes} />
+              <Select name="kind" label={t("workspace_settings.settings.agents.prompt_kind")} values={promptKinds} />
               <Field name="variables" label="Variables" placeholder="repo, task, status" />
               <TextArea name="description" label={t("common.description")} rows={2} />
               <TextArea name="body" label={t("workspace_settings.settings.agents.prompt_body")} rows={7} required />
@@ -199,7 +224,7 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
               items={(snapshot?.prompts ?? []).map((prompt) => ({
                 id: prompt.id,
                 title: prompt.name,
-                meta: `${prompt.key} · ${prompt.prompt_type} · v${promptVersionByPrompt.get(prompt.id) ?? prompt.latest_version}`,
+                meta: `${prompt.key} · ${prompt.scope ?? prompt.prompt_type} · ${prompt.kind ?? "instruction"} · v${promptVersionByPrompt.get(prompt.id) ?? prompt.latest_version}`,
                 description: prompt.description,
               }))}
             />
@@ -243,6 +268,11 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
                   name: `v${version.version}`,
                 }))}
               />
+              <Select
+                name="version_policy"
+                label={t("workspace_settings.settings.agents.version_policy")}
+                values={versionPolicies}
+              />
               <EntitySelect
                 name="role"
                 label={t("common.role")}
@@ -269,8 +299,29 @@ function AgentsWorkspaceSettingsPage({ params }: Route.ComponentProps) {
               items={(snapshot?.promptBindings ?? []).map((binding) => ({
                 id: binding.id,
                 title: `${nameFor(snapshot?.agents, binding.agent)} -> ${nameFor(snapshot?.prompts, binding.prompt)}`,
-                meta: `${binding.slot} · #${binding.sort_order}`,
+                meta: `${binding.slot} · ${binding.version_policy ?? "latest"} · #${binding.sort_order}`,
                 description: binding.role ? `${t("common.role")}: ${nameFor(snapshot?.roles, binding.role)}` : "",
+              }))}
+            />
+          </Panel>
+
+          <Panel title={t("workspace_settings.settings.agents.secret_keys")}>
+            <Form onSubmit={handleCreateSecretKey}>
+              <Field name="key" label={t("workspace_settings.settings.agents.key")} placeholder="github-token" />
+              <Field name="provider" label="Provider" placeholder="env" defaultValue="env" />
+              <Field name="provider_ref" label="Provider ref" placeholder="GITHUB_TOKEN" />
+              <TextArea name="description" label={t("common.description")} rows={3} />
+              <SubmitButton disabled={saving === "secret"}>
+                {t("workspace_settings.settings.agents.create_secret_key")}
+              </SubmitButton>
+            </Form>
+            <List
+              empty={t("workspace_settings.settings.agents.no_secret_keys")}
+              items={(snapshot?.secretKeys ?? []).map((secret) => ({
+                id: secret.id,
+                title: secret.key,
+                meta: `${secret.provider} · ${secret.status}`,
+                description: secret.description || secret.provider_ref,
               }))}
             />
           </Panel>

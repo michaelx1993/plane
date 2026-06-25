@@ -146,16 +146,23 @@ retry, run events, and worker state.
 Source tables added under the Plane `db` app:
 
 - `agent_user_agents`: user/workspace-level agent definitions.
-- `agent_prompts`: prompt metadata and type (`agent`, `project`, `role`,
-  `playbook_task`, `business_system`).
-- `agent_prompt_versions`: immutable prompt bodies and configured effective
-  versions.
-- `agent_prompt_bindings`: ordered prompt composition for an agent.
+- `agent_prompts`: prompt metadata with PRD-aligned `scope`
+  (`agent`, `project`, `role`, `playbook`, `task`, `workspace`) and `kind`
+  (`instruction`, `context`, `constraint`, `workflow`, `style`, `safety`,
+  `output_contract`). The legacy `prompt_type` field remains for deployed ACP
+  compatibility.
+- `agent_prompt_versions`: immutable prompt bodies, variables, changelog, and
+  content hash.
+- `agent_prompt_bindings`: ordered prompt composition for an agent with
+  `version_policy=latest|pinned`, target metadata, and role slot.
 - `agent_roles`: reusable role definitions.
 - `agent_worker_cards`: selectable worker cards for real-machine execution.
-- `agent_project_workspaces`: project local workspace and status/progress/meta
-  document paths.
-- `agent_repositories`: registered repositories used by project workspaces.
+- `agent_user_secret_keys`: user-level password book key metadata. Values are
+  not stored here; worker runtime resolves values from the selected provider.
+- `agent_project_workspaces`: project workspace metadata, path policy,
+  local/remote Project Meta Git policy, and status/progress/meta document paths.
+- `agent_repositories`: registered repositories used by project workspaces with
+  owner/full name, credential key, clone URL, and worktree strategy metadata.
 - `agent_config_outbox`: monotonic workspace-scoped change feed consumed by
   Agent Control Plane.
 
@@ -175,6 +182,8 @@ GET  /api/v1/workspaces/{slug}/agent-prompt-bindings/
 POST /api/v1/workspaces/{slug}/agent-prompt-bindings/
 GET  /api/v1/workspaces/{slug}/agent-worker-cards/
 POST /api/v1/workspaces/{slug}/agent-worker-cards/
+GET  /api/v1/workspaces/{slug}/agent-user-secret-keys/
+POST /api/v1/workspaces/{slug}/agent-user-secret-keys/
 GET  /api/v1/workspaces/{slug}/agent-project-workspaces/
 POST /api/v1/workspaces/{slug}/agent-project-workspaces/
 GET  /api/v1/workspaces/{slug}/agent-repositories/

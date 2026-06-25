@@ -25,6 +25,8 @@ from .agent import (
     AgentRoleListCreateAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
     AgentUserAgentListCreateAPIEndpoint,
+    AgentUserSecretKeyDetailAPIEndpoint,
+    AgentUserSecretKeyListCreateAPIEndpoint,
     AgentWorkerCardDetailAPIEndpoint,
     AgentWorkerCardListCreateAPIEndpoint,
 )

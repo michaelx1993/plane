@@ -13,7 +13,10 @@ from plane.db.models import (
     AgentRepository,
     AgentRole,
     AgentUserAgent,
+    AgentUserSecretKey,
     AgentWorkerCard,
+    prompt_type_to_scope,
+    scope_to_prompt_type,
 )
 
 from .base import BaseSerializer
@@ -62,7 +65,10 @@ class AgentPromptSerializer(AgentWorkspaceScopedSerializer):
             "name",
             "description",
             "prompt_type",
+            "scope",
+            "kind",
             "visibility",
+            "status",
             "latest_version",
             "metadata",
             "is_active",
@@ -70,6 +76,14 @@ class AgentPromptSerializer(AgentWorkspaceScopedSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "workspace", "latest_version", "created_at", "updated_at"]
+        extra_kwargs = {"prompt_type": {"required": False}}
+
+    def validate(self, attrs):
+        if not attrs.get("scope") and attrs.get("prompt_type"):
+            attrs["scope"] = prompt_type_to_scope(attrs["prompt_type"])
+        if not attrs.get("prompt_type") and attrs.get("scope"):
+            attrs["prompt_type"] = scope_to_prompt_type(attrs["scope"])
+        return attrs
 
 
 class AgentPromptVersionSerializer(AgentWorkspaceScopedSerializer):
@@ -82,6 +96,8 @@ class AgentPromptVersionSerializer(AgentWorkspaceScopedSerializer):
             "version",
             "body",
             "variables",
+            "content_hash",
+            "changelog",
             "metadata",
             "is_active",
             "created_at",
@@ -125,6 +141,10 @@ class AgentPromptBindingSerializer(AgentWorkspaceScopedSerializer):
             "agent",
             "prompt",
             "prompt_version",
+            "target_type",
+            "target_id",
+            "version_policy",
+            "pinned_version",
             "role",
             "slot",
             "sort_order",
@@ -138,10 +158,17 @@ class AgentPromptBindingSerializer(AgentWorkspaceScopedSerializer):
     def validate(self, attrs):
         self._assert_same_workspace(attrs, "agent", "prompt")
         workspace_id = self.context.get("workspace_id")
-        for field_name in ["prompt_version", "role"]:
+        for field_name in ["prompt_version", "pinned_version", "role"]:
             instance = attrs.get(field_name)
             if instance is not None and str(instance.workspace_id) != str(workspace_id):
                 raise serializers.ValidationError({field_name: "Object must belong to the current workspace."})
+        version_policy = attrs.get("version_policy", getattr(self.instance, "version_policy", "latest"))
+        pinned_version = attrs.get("pinned_version") or attrs.get("prompt_version") or getattr(self.instance, "pinned_version", None)
+        if version_policy == "pinned" and pinned_version is None:
+            raise serializers.ValidationError({"pinned_version": "Pinned bindings require a prompt version."})
+        if pinned_version is not None:
+            attrs["prompt_version"] = pinned_version
+            attrs["pinned_version"] = pinned_version
         return attrs
 
 
@@ -173,7 +200,12 @@ class AgentProjectWorkspaceSerializer(AgentWorkspaceScopedSerializer):
             "workspace",
             "project",
             "worker_card",
+            "slug",
+            "name",
             "local_path",
+            "path_policy",
+            "meta_git_mode",
+            "meta_git_remote_url",
             "status_path",
             "progress_path",
             "meta_path",
@@ -204,9 +236,15 @@ class AgentRepositorySerializer(AgentWorkspaceScopedSerializer):
             "project",
             "key",
             "provider",
+            "scm_provider",
+            "owner",
             "name",
+            "full_name",
             "url",
+            "clone_url",
             "default_branch",
+            "credential_key",
+            "worktree_strategy",
             "local_path",
             "metadata",
             "is_required",
@@ -222,6 +260,24 @@ class AgentRepositorySerializer(AgentWorkspaceScopedSerializer):
         if project is not None and str(project.workspace_id) != str(workspace_id):
             raise serializers.ValidationError({"project": "Project must belong to the current workspace."})
         return attrs
+
+
+class AgentUserSecretKeySerializer(AgentWorkspaceScopedSerializer):
+    class Meta:
+        model = AgentUserSecretKey
+        fields = [
+            "id",
+            "workspace",
+            "owner",
+            "key",
+            "description",
+            "provider",
+            "provider_ref",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
 
 
 class AgentConfigOutboxSerializer(serializers.ModelSerializer):

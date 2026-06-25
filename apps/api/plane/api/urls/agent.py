@@ -20,6 +20,8 @@ from plane.api.views import (
     AgentRoleListCreateAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
     AgentUserAgentListCreateAPIEndpoint,
+    AgentUserSecretKeyDetailAPIEndpoint,
+    AgentUserSecretKeyListCreateAPIEndpoint,
     AgentWorkerCardDetailAPIEndpoint,
     AgentWorkerCardListCreateAPIEndpoint,
 )
@@ -89,6 +91,16 @@ urlpatterns = [
         "workspaces/<str:slug>/agent-worker-cards/<uuid:pk>/",
         AgentWorkerCardDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
         name="agent-worker-card",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-user-secret-keys/",
+        AgentUserSecretKeyListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-user-secret-key",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-user-secret-keys/<uuid:pk>/",
+        AgentUserSecretKeyDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-user-secret-key",
     ),
     path(
         "workspaces/<str:slug>/agent-project-workspaces/",

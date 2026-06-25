@@ -12,7 +12,10 @@ from .agent import (
     AgentRepository,
     AgentRole,
     AgentUserAgent,
+    AgentUserSecretKey,
     AgentWorkerCard,
+    prompt_type_to_scope,
+    scope_to_prompt_type,
 )
 from .api import APIActivityLog, APIToken
 from .asset import FileAsset

@@ -75,7 +75,12 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
       await agentPlatformService.createProjectWorkspace(workspaceSlug, {
         project: projectId,
         worker_card: optionalValueOf(formData, "worker_card"),
+        slug: valueOf(formData, "slug"),
+        name: valueOf(formData, "name"),
         local_path: valueOf(formData, "local_path"),
+        path_policy: valueOf(formData, "path_policy") || "worker_managed",
+        meta_git_mode: valueOf(formData, "meta_git_mode") || "local",
+        meta_git_remote_url: valueOf(formData, "meta_git_remote_url"),
         status_path: valueOf(formData, "status_path") || "status.md",
         progress_path: valueOf(formData, "progress_path") || "progress.md",
         meta_path: valueOf(formData, "meta_path") || "meta.md",
@@ -89,9 +94,15 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
         project: projectId,
         key: valueOf(formData, "key"),
         provider: valueOf(formData, "provider") || "github",
+        scm_provider: valueOf(formData, "provider") || "github",
+        owner: valueOf(formData, "owner"),
         name: valueOf(formData, "name"),
+        full_name: valueOf(formData, "full_name") || valueOf(formData, "name"),
         url: valueOf(formData, "url"),
+        clone_url: valueOf(formData, "url"),
         default_branch: valueOf(formData, "default_branch") || "default",
+        credential_key: valueOf(formData, "credential_key"),
+        worktree_strategy: valueOf(formData, "worktree_strategy") || "per_run",
         local_path: valueOf(formData, "local_path"),
         is_required: formData.get("is_required") === "on",
       });
@@ -160,11 +171,16 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
           <Panel title={t("project_settings.agents.project_workspace")}>
             <Form onSubmit={handleCreateProjectWorkspace}>
               <WorkerSelect workerCards={snapshot?.workerCards ?? []} name="worker_card" optional />
+              <Field name="slug" label={t("project_settings.agents.key")} placeholder="token" />
+              <Field name="name" label={t("common.name")} placeholder="Token Project Workspace" />
               <Field
                 name="local_path"
                 label={t("project_settings.agents.local_path")}
                 placeholder="/Users/a/agent-worker-workspaces/my-project-meta"
               />
+              <Field name="path_policy" label="Path policy" defaultValue="worker_managed" />
+              <Field name="meta_git_mode" label="Meta Git mode" defaultValue="local" />
+              <Field name="meta_git_remote_url" label="Meta Git remote URL" />
               <Field name="status_path" label="status.md" defaultValue="status.md" />
               <Field name="progress_path" label="progress.md" defaultValue="progress.md" />
               <Field name="meta_path" label="meta.md" defaultValue="meta.md" />
@@ -176,8 +192,8 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
               empty={t("project_settings.agents.no_project_workspace")}
               items={(snapshot?.projectWorkspaces ?? []).map((workspace) => ({
                 id: workspace.id,
-                title: workspace.local_path,
-                meta: workspace.worker_card ? nameFor(snapshot?.workerCards, workspace.worker_card) : "-",
+                title: workspace.name || workspace.local_path,
+                meta: `${workspace.slug || "-"} · ${workspace.meta_git_mode || "local"}`,
                 description: `${workspace.status_path} · ${workspace.progress_path} · ${workspace.meta_path}`,
               }))}
             />
@@ -187,7 +203,9 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
             <Form onSubmit={handleCreateRepository}>
               <Field name="key" label={t("project_settings.agents.key")} placeholder="agent-control-plane" />
               <Field name="provider" label="Provider" placeholder="github" defaultValue="github" />
+              <Field name="owner" label="Owner" placeholder="michaelx1993" />
               <Field name="name" label={t("common.name")} placeholder="michaelx1993/agent-control-plane" />
+              <Field name="full_name" label="Full name" placeholder="michaelx1993/agent-control-plane" />
               <Field
                 name="url"
                 label="Clone URL"
@@ -195,6 +213,8 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
                 required
               />
               <Field name="default_branch" label={t("project_settings.agents.default_branch")} defaultValue="default" />
+              <Field name="credential_key" label="Credential key" placeholder="github-token" />
+              <Field name="worktree_strategy" label="Worktree strategy" defaultValue="per_run" />
               <Field
                 name="local_path"
                 label={t("project_settings.agents.local_path")}
@@ -212,8 +232,8 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
               empty={t("project_settings.agents.no_repositories")}
               items={(snapshot?.repositories ?? []).map((repo) => ({
                 id: repo.id,
-                title: repo.name,
-                meta: `${repo.provider} · ${repo.default_branch}`,
+                title: repo.full_name || repo.name,
+                meta: `${repo.provider} · ${repo.default_branch} · ${repo.worktree_strategy || "per_run"}`,
                 description: repo.url,
               }))}
             />
@@ -360,10 +380,6 @@ function csvOf(formData: FormData, key: string): string[] {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-}
-
-function nameFor(items: Array<{ id: string; name: string }> | undefined, id: string): string {
-  return items?.find((item) => item.id === id)?.name ?? id;
 }
 
 export default observer(AgentsProjectSettingsPage);
