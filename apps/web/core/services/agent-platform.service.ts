@@ -161,6 +161,30 @@ export type AgentPlatformProjectSnapshot = {
   repositories: AgentRepository[];
 };
 
+export type AgentRunIntentPayload = {
+  project_id: string;
+  work_item_id: string;
+  agent_id?: string | null;
+  repository_id?: string | null;
+  worker_id?: string | null;
+  prompt_version_ids?: string[];
+  available_secret_keys?: string[];
+};
+
+export type AgentRunIntentResponse = {
+  ok: boolean;
+  queued: boolean;
+  task?: {
+    taskId: string;
+    projectId: string;
+    externalTaskId: string;
+    identifier: string;
+    repositoryId?: string;
+    repositorySlug?: string;
+    routed: boolean;
+  };
+};
+
 export class AgentPlatformService extends APIService {
   constructor() {
     super(API_BASE_URL);
@@ -230,6 +254,18 @@ export class AgentPlatformService extends APIService {
 
   async createRepository(workspaceSlug: string, payload: Partial<AgentRepository>): Promise<AgentRepository> {
     return this.create(workspaceSlug, "agent-repositories", payload);
+  }
+
+  async createRunIntent(workspaceSlug: string, payload: AgentRunIntentPayload): Promise<AgentRunIntentResponse> {
+    return this.post(`/api/v1/workspaces/${workspaceSlug}/agent-runs/`, payload, { validateStatus: null })
+      .then((response) => {
+        if (response?.status >= 400) throw response?.data;
+        return response?.data as AgentRunIntentResponse;
+      })
+      .catch((error) => {
+        const agentError = error as AgentPlatformError;
+        throw agentError.response?.data ?? error;
+      });
   }
 
   private async list<T>(workspaceSlug: string, resource: string): Promise<T[]> {

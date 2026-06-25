@@ -18,6 +18,7 @@ from plane.api.views import (
     AgentRepositoryListCreateAPIEndpoint,
     AgentRoleDetailAPIEndpoint,
     AgentRoleListCreateAPIEndpoint,
+    AgentRunIntentAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
     AgentUserAgentListCreateAPIEndpoint,
     AgentUserSecretKeyDetailAPIEndpoint,
@@ -27,6 +28,11 @@ from plane.api.views import (
 )
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/agent-runs/",
+        AgentRunIntentAPIEndpoint.as_view(http_method_names=["post"]),
+        name="agent-run-intent",
+    ),
     path(
         "workspaces/<str:slug>/agent-config-outbox/",
         AgentConfigOutboxAPIEndpoint.as_view(http_method_names=["get"]),

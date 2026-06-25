@@ -3,14 +3,19 @@
 # See the LICENSE file for details.
 
 import json
+import os
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
+import requests
 
+from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.app.permissions import WorkspaceEntityPermission
+from plane.authentication.session import BaseSessionAuthentication
 from plane.api.serializers import (
     AgentConfigOutboxSerializer,
     AgentPromptBindingSerializer,
@@ -34,6 +39,8 @@ from plane.db.models import (
     AgentUserAgent,
     AgentUserSecretKey,
     AgentWorkerCard,
+    Issue,
+    Project,
     Workspace,
 )
 
@@ -60,6 +67,7 @@ class AgentConfigSourceListCreateAPIEndpoint(BaseAPIView):
     serializer_class = None
     entity_type = None
     permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
     use_read_replica = True
 
     def get_queryset(self):
@@ -101,6 +109,7 @@ class AgentConfigSourceDetailAPIEndpoint(BaseAPIView):
     serializer_class = None
     entity_type = None
     permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
     use_read_replica = True
 
     def get_queryset(self):
@@ -263,8 +272,70 @@ class AgentRepositoryDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
     entity_type = "agent_repository"
 
 
+class AgentRunIntentAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+
+    def post(self, request, slug):
+        acp_base_url = os.environ.get("AGENT_CONTROL_PLANE_URL", "").strip().rstrip("/")
+        if not acp_base_url:
+            return Response(
+                {"error": "AGENT_CONTROL_PLANE_URL is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        project_id = request.data.get("project_id")
+        work_item_id = request.data.get("work_item_id")
+        repository_id = request.data.get("repository_id")
+        if not project_id or not work_item_id:
+            return Response(
+                {"error": "project_id and work_item_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project = get_object_or_404(Project, id=project_id, workspace__slug=slug)
+        issue = _resolve_agent_run_issue(slug, project.id, str(work_item_id))
+        repository = None
+        if repository_id:
+            repository = get_object_or_404(
+                AgentRepository,
+                id=repository_id,
+                workspace__slug=slug,
+            )
+
+        payload = _build_agent_run_intent_payload(request, slug, project, issue, repository)
+        headers = {"Content-Type": "application/json"}
+        token = os.environ.get("AGENT_CONTROL_PLANE_TOKEN", "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            response = requests.post(
+                f"{acp_base_url}/api/runs",
+                json=payload,
+                headers=headers,
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            return Response(
+                {"error": "Agent Control Plane is unavailable.", "detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            response_payload = response.json()
+        except ValueError:
+            response_payload = {"error": response.text}
+
+        if response.status_code >= 400:
+            return Response(response_payload, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(response_payload, status=status.HTTP_201_CREATED)
+
+
 class AgentConfigOutboxAPIEndpoint(BaseAPIView):
     permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
     use_read_replica = True
 
     def get(self, request, slug):
@@ -275,3 +346,95 @@ class AgentConfigOutboxAPIEndpoint(BaseAPIView):
             id__gt=after_id,
         ).order_by("id")[:limit]
         return Response(AgentConfigOutboxSerializer(queryset, many=True).data)
+
+
+def _resolve_agent_run_issue(slug, project_id, work_item_id):
+    queryset = Issue.issue_objects.select_related("state", "project").filter(
+        workspace__slug=slug,
+        project_id=project_id,
+    )
+    issue = queryset.filter(id=work_item_id).first()
+    if issue:
+        return issue
+
+    if "-" in work_item_id:
+        sequence = work_item_id.rsplit("-", 1)[-1]
+        if sequence.isdigit():
+            issue = queryset.filter(sequence_id=int(sequence)).first()
+            if issue:
+                return issue
+
+    if work_item_id.isdigit():
+        return get_object_or_404(queryset, sequence_id=int(work_item_id))
+
+    raise Http404
+
+
+def _build_agent_run_intent_payload(request, slug, project, issue, repository):
+    identifier = f"{project.identifier}-{issue.sequence_id}"
+    payload = {
+        "source": "plane",
+        "planeProjectId": str(project.id),
+        "projectSlug": project.identifier.lower(),
+        "externalTaskId": str(issue.id),
+        "identifier": identifier,
+        "title": issue.name,
+        "state": _agent_run_workflow_state(issue.state),
+        "priority": _agent_run_priority(issue.priority),
+        "url": request.build_absolute_uri(f"/{slug}/browse/{identifier}/"),
+    }
+
+    if repository:
+        payload.update(
+            {
+                "repositoryKey": repository.key,
+                "repositoryUrl": repository.clone_url or repository.url,
+            }
+        )
+
+    return payload
+
+
+def _agent_run_priority(priority):
+    return {
+        "urgent": 1,
+        "high": 2,
+        "medium": 3,
+        "low": 4,
+        "none": 5,
+    }.get(priority)
+
+
+def _agent_run_workflow_state(state):
+    if not state:
+        return "Todo"
+
+    normalized_name = (state.name or "").strip()
+    if normalized_name in {
+        "Backlog",
+        "Todo",
+        "Development",
+        "Code Review",
+        "Human Review",
+        "In Merge",
+        "Merged",
+        "Release Version",
+        "Released",
+        "Deployment",
+        "Deployed",
+        "Blocked",
+        "Done",
+        "Canceled",
+        "Duplicate",
+    }:
+        return normalized_name
+
+    return {
+        "backlog": "Backlog",
+        "unstarted": "Todo",
+        "started": "Development",
+        "completed": "Done",
+        "cancelled": "Canceled",
+        "canceled": "Canceled",
+        "triage": "Backlog",
+    }.get((state.group or "").strip().lower(), "Todo")

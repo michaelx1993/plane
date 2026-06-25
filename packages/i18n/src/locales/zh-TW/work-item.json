@@ -41,6 +41,10 @@
       "assembled_prompt": "組裝後的 Prompt",
       "no_prompt_stack": "此 Agent 沒有啟用的 Prompt 綁定。",
       "empty_preview": "暫無 Prompt 預覽。",
+      "start": "啟動 Agent 執行",
+      "queued": "Agent 執行已入隊。",
+      "queued_unrouted": "Agent 執行已入隊，但儲存庫路由尚未就緒。",
+      "queue_failed": "無法入隊 Agent 執行。",
       "copy_intent": "複製執行意圖",
       "copied": "執行意圖已複製。",
       "copy_failed": "無法複製執行意圖。"

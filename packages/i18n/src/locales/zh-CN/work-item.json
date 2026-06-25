@@ -41,6 +41,10 @@
       "assembled_prompt": "组装后的 Prompt",
       "no_prompt_stack": "这个 Agent 没有启用的 Prompt 绑定。",
       "empty_preview": "暂无 Prompt 预览。",
+      "start": "启动 Agent 运行",
+      "queued": "Agent 运行已入队。",
+      "queued_unrouted": "Agent 运行已入队，但仓库路由尚未就绪。",
+      "queue_failed": "无法入队 Agent 运行。",
       "copy_intent": "复制运行意图",
       "copied": "运行意图已复制。",
       "copy_failed": "无法复制运行意图。"

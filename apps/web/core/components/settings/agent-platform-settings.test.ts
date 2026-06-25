@@ -49,7 +49,9 @@ assert.ok(
 assert.ok(
   serviceSource.includes("getProjectSnapshot") &&
     serviceSource.includes("agent-worker-cards") &&
-    serviceSource.includes("agent-repositories"),
+    serviceSource.includes("agent-repositories") &&
+    serviceSource.includes("createRunIntent") &&
+    serviceSource.includes("agent-runs"),
   "agent platform service should cover project agent resources"
 );
 assert.ok(
@@ -94,8 +96,10 @@ assert.ok(
     agentRunActionSource.includes('data-testid="agent-run-action-trigger"') &&
     agentRunActionSource.includes("promptStack") &&
     agentRunActionSource.includes("availableSecretKeys") &&
+    agentRunActionSource.includes("submitRunIntent") &&
+    agentRunActionSource.includes("createRunIntent") &&
     agentRunActionSource.includes("copyRunIntent"),
-  "Agent run action should expose a resilient trigger and assemble Agent, repository, worker, prompt stack, and secret-key preview"
+  "Agent run action should expose a resilient trigger, assemble Agent context, and queue run intents"
 );
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {
@@ -105,6 +109,8 @@ for (const locale of ["en", "zh-CN", "zh-TW"]) {
   assert.ok(workspaceMessages.workspace_settings.settings.agents.title, `${locale} workspace agent title is required`);
   assert.ok(projectMessages.project_settings.agents.label, `${locale} project agent label is required`);
   assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
+  assert.ok(workItemMessages.issue.agent_run.start, `${locale} work item Agent run start is required`);
+  assert.ok(workItemMessages.issue.agent_run.queued, `${locale} work item Agent run queued is required`);
 }
 
 console.log("agent_platform_settings=passed");
