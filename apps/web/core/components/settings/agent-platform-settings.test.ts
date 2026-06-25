@@ -40,7 +40,8 @@ assert.ok(
 assert.ok(
   serviceSource.includes("getWorkspaceSnapshot") &&
     serviceSource.includes("agent-agents") &&
-    serviceSource.includes("agent-prompt-bindings"),
+    serviceSource.includes("agent-prompt-bindings") &&
+    serviceSource.includes("agent-user-secret-keys"),
   "agent platform service should cover workspace agent resources"
 );
 assert.ok(
@@ -52,14 +53,21 @@ assert.ok(
 assert.ok(
   workspacePageSource.includes("createAgent") &&
     workspacePageSource.includes("createPromptVersion") &&
-    workspacePageSource.includes("createPromptBinding"),
-  "workspace Agent Library page should create agents, prompt versions, and bindings"
+    workspacePageSource.includes("createPromptBinding") &&
+    workspacePageSource.includes("createSecretKey") &&
+    workspacePageSource.includes("version_policy") &&
+    workspacePageSource.includes("scope") &&
+    workspacePageSource.includes("kind"),
+  "workspace Agent Library page should create agents, prompt versions, bindings, and secret keys"
 );
 assert.ok(
   projectPageSource.includes("createWorkerCard") &&
     projectPageSource.includes("createProjectWorkspace") &&
-    projectPageSource.includes("createRepository"),
-  "project Agents page should create worker cards, project workspace config, and repositories"
+    projectPageSource.includes("createRepository") &&
+    projectPageSource.includes("meta_git_mode") &&
+    projectPageSource.includes("credential_key") &&
+    projectPageSource.includes("worktree_strategy"),
+  "project Agents page should create worker cards, PRD workspace config, and repositories"
 );
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {

@@ -9,7 +9,17 @@ import { APIService } from "@/services/api.service";
 
 type ListResponse<T> = T[] | { results?: T[] };
 
-export type AgentPromptType = "agent" | "project" | "role" | "playbook_task" | "business_system";
+export type AgentPromptScope = "agent" | "project" | "role" | "playbook" | "task" | "workspace";
+export type AgentPromptKind =
+  | "instruction"
+  | "context"
+  | "constraint"
+  | "workflow"
+  | "style"
+  | "safety"
+  | "output_contract";
+export type AgentPromptType = AgentPromptScope | "playbook_task" | "business_system";
+export type AgentPromptVersionPolicy = "latest" | "pinned";
 
 export type AgentUserAgent = {
   id: string;
@@ -30,7 +40,10 @@ export type AgentPrompt = {
   name: string;
   description: string;
   prompt_type: AgentPromptType;
+  scope: AgentPromptScope;
+  kind: AgentPromptKind;
   visibility: string;
+  status: string;
   latest_version: number;
   is_active: boolean;
 };
@@ -41,6 +54,8 @@ export type AgentPromptVersion = {
   version: number;
   body: string;
   variables: string[];
+  content_hash: string;
+  changelog: string;
   is_active: boolean;
 };
 
@@ -58,6 +73,10 @@ export type AgentPromptBinding = {
   agent: string;
   prompt: string;
   prompt_version: string | null;
+  target_type: string;
+  target_id: string;
+  version_policy: AgentPromptVersionPolicy;
+  pinned_version: string | null;
   role: string | null;
   slot: string;
   sort_order: number;
@@ -80,7 +99,12 @@ export type AgentProjectWorkspace = {
   id: string;
   project: string;
   worker_card: string | null;
+  slug: string;
+  name: string;
   local_path: string;
+  path_policy: string;
+  meta_git_mode: string;
+  meta_git_remote_url: string;
   status_path: string;
   progress_path: string;
   meta_path: string;
@@ -92,12 +116,28 @@ export type AgentRepository = {
   project: string | null;
   key: string;
   provider: string;
+  scm_provider: string;
+  owner: string;
   name: string;
+  full_name: string;
   url: string;
+  clone_url: string;
   default_branch: string;
+  credential_key: string;
+  worktree_strategy: string;
   local_path: string;
   is_required: boolean;
   is_active: boolean;
+};
+
+export type AgentUserSecretKey = {
+  id: string;
+  owner: string | null;
+  key: string;
+  description: string;
+  provider: string;
+  provider_ref: string;
+  status: string;
 };
 
 export type AgentPlatformWorkspaceSnapshot = {
@@ -106,6 +146,7 @@ export type AgentPlatformWorkspaceSnapshot = {
   promptVersions: AgentPromptVersion[];
   roles: AgentRole[];
   promptBindings: AgentPromptBinding[];
+  secretKeys: AgentUserSecretKey[];
 };
 
 export type AgentPlatformProjectSnapshot = {
@@ -120,15 +161,16 @@ export class AgentPlatformService extends APIService {
   }
 
   async getWorkspaceSnapshot(workspaceSlug: string): Promise<AgentPlatformWorkspaceSnapshot> {
-    const [agents, prompts, promptVersions, roles, promptBindings] = await Promise.all([
+    const [agents, prompts, promptVersions, roles, promptBindings, secretKeys] = await Promise.all([
       this.list<AgentUserAgent>(workspaceSlug, "agent-agents"),
       this.list<AgentPrompt>(workspaceSlug, "agent-prompts"),
       this.list<AgentPromptVersion>(workspaceSlug, "agent-prompt-versions"),
       this.list<AgentRole>(workspaceSlug, "agent-roles"),
       this.list<AgentPromptBinding>(workspaceSlug, "agent-prompt-bindings"),
+      this.list<AgentUserSecretKey>(workspaceSlug, "agent-user-secret-keys"),
     ]);
 
-    return { agents, prompts, promptVersions, roles, promptBindings };
+    return { agents, prompts, promptVersions, roles, promptBindings, secretKeys };
   }
 
   async getProjectSnapshot(workspaceSlug: string, projectId: string): Promise<AgentPlatformProjectSnapshot> {
@@ -163,6 +205,10 @@ export class AgentPlatformService extends APIService {
 
   async createRole(workspaceSlug: string, payload: Partial<AgentRole>): Promise<AgentRole> {
     return this.create(workspaceSlug, "agent-roles", payload);
+  }
+
+  async createSecretKey(workspaceSlug: string, payload: Partial<AgentUserSecretKey>): Promise<AgentUserSecretKey> {
+    return this.create(workspaceSlug, "agent-user-secret-keys", payload);
   }
 
   async createWorkerCard(workspaceSlug: string, payload: Partial<AgentWorkerCard>): Promise<AgentWorkerCard> {
