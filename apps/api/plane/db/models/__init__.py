@@ -3,6 +3,17 @@
 # See the LICENSE file for details.
 
 from .analytic import AnalyticView
+from .agent import (
+    AgentConfigOutbox,
+    AgentPrompt,
+    AgentPromptBinding,
+    AgentPromptVersion,
+    AgentProjectWorkspace,
+    AgentRepository,
+    AgentRole,
+    AgentUserAgent,
+    AgentWorkerCard,
+)
 from .api import APIActivityLog, APIToken
 from .asset import FileAsset
 from .base import BaseModel

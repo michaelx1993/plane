@@ -9,6 +9,26 @@ from .project import (
     ProjectSummaryAPIEndpoint,
 )
 
+from .agent import (
+    AgentConfigOutboxAPIEndpoint,
+    AgentPromptBindingDetailAPIEndpoint,
+    AgentPromptBindingListCreateAPIEndpoint,
+    AgentPromptDetailAPIEndpoint,
+    AgentPromptListCreateAPIEndpoint,
+    AgentPromptVersionDetailAPIEndpoint,
+    AgentPromptVersionListCreateAPIEndpoint,
+    AgentProjectWorkspaceDetailAPIEndpoint,
+    AgentProjectWorkspaceListCreateAPIEndpoint,
+    AgentRepositoryDetailAPIEndpoint,
+    AgentRepositoryListCreateAPIEndpoint,
+    AgentRoleDetailAPIEndpoint,
+    AgentRoleListCreateAPIEndpoint,
+    AgentUserAgentDetailAPIEndpoint,
+    AgentUserAgentListCreateAPIEndpoint,
+    AgentWorkerCardDetailAPIEndpoint,
+    AgentWorkerCardListCreateAPIEndpoint,
+)
+
 from .state import (
     StateListCreateAPIEndpoint,
     StateDetailAPIEndpoint,
