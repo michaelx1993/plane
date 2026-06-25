@@ -14,6 +14,7 @@ import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
 import { WorkItemAdditionalWidgetActionButtons } from "@/plane-web/components/issues/issue-detail-widgets/action-buttons";
 // local imports
 import { IssueAttachmentActionButton } from "./attachments";
+import { AgentRunActionButton } from "./agent-run-action-button";
 import { IssueLinksActionButton } from "./links";
 import { RelationActionButton } from "./relations";
 import { SubIssuesActionButton } from "./sub-issues";
@@ -92,6 +93,7 @@ export function IssueDetailWidgetActionButtons(props: Props) {
           issueServiceType={issueServiceType}
         />
       )}
+      <AgentRunActionButton workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       <WorkItemAdditionalWidgetActionButtons
         disabled={disabled}
         hideWidgets={hideWidgets ?? []}

@@ -23,7 +23,27 @@
       "dependency": "新增相依性",
       "relation": "新增關聯",
       "link": "新增連結",
+      "agent_run": "交給 Agent",
       "existing": "新增現有工作事項"
+    },
+    "agent_run": {
+      "action": "交給 Agent",
+      "title": "Agent 執行預覽",
+      "work_item_id": "工作事項 ID",
+      "project_agents": "專案 Agents",
+      "agent": "Agent",
+      "repository": "儲存庫",
+      "worker": "Worker",
+      "model": "模型",
+      "target_branch": "目標分支",
+      "secret_keys": "Secret keys",
+      "prompt_stack": "Prompt 堆疊",
+      "assembled_prompt": "組裝後的 Prompt",
+      "no_prompt_stack": "此 Agent 沒有啟用的 Prompt 綁定。",
+      "empty_preview": "暫無 Prompt 預覽。",
+      "copy_intent": "複製執行意圖",
+      "copied": "執行意圖已複製。",
+      "copy_failed": "無法複製執行意圖。"
     },
     "remove": {
       "label": "移除工作事項",

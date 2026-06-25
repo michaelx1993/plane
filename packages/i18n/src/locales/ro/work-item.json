@@ -23,7 +23,8 @@
       "dependency": "Adaugă dependență",
       "relation": "Adaugă relație",
       "link": "Adaugă link",
-      "existing": "Adaugă activitate existentă"
+      "existing": "Adaugă activitate existentă",
+      "agent_run": "Run with agent"
     },
     "remove": {
       "label": "Elimină activitatea",
@@ -266,6 +267,25 @@
       "click_to_downvote": "Clic pentru a vota negativ",
       "click_to_view_upvotes": "Clic pentru a vedea voturile pozitive",
       "click_to_view_downvotes": "Clic pentru a vedea voturile negative"
+    },
+    "agent_run": {
+      "action": "Run with agent",
+      "title": "Agent run preview",
+      "work_item_id": "Work item ID",
+      "project_agents": "Project Agents",
+      "agent": "Agent",
+      "repository": "Repository",
+      "worker": "Worker",
+      "model": "Model",
+      "target_branch": "Target branch",
+      "secret_keys": "Secret keys",
+      "prompt_stack": "Prompt stack",
+      "assembled_prompt": "Assembled prompt",
+      "no_prompt_stack": "No active prompt bindings for this agent.",
+      "empty_preview": "No prompt preview available.",
+      "copy_intent": "Copy run intent",
+      "copied": "Run intent copied.",
+      "copy_failed": "Run intent could not be copied."
     }
   },
   "sub_work_item": {

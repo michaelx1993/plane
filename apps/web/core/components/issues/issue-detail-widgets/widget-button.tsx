@@ -12,13 +12,14 @@ type Props = {
   icon: React.ReactNode;
   title: string;
   disabled?: boolean;
+  onClick?: () => void;
 };
 
 export function IssueDetailWidgetButton(props: Props) {
-  const { icon, title, disabled = false } = props;
+  const { icon, title, disabled = false, onClick } = props;
   return (
-    <Button variant={"secondary"} disabled={disabled} size="lg">
-      {icon && icon}
+    <Button variant={"secondary"} disabled={disabled} onClick={onClick} size="lg" type="button">
+      {icon}
       <span className="text-body-xs-medium">{title}</span>
     </Button>
   );
