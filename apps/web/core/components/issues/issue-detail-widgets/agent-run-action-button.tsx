@@ -50,7 +50,6 @@ export function AgentRunActionButton(props: Props) {
   const { workspaceSlug, projectId, issueId, disabled } = props;
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
@@ -60,11 +59,11 @@ export function AgentRunActionButton(props: Props) {
   }, []);
 
   const { data: workspaceSnapshot, isLoading: isWorkspaceLoading } = useSWR<AgentPlatformWorkspaceSnapshot>(
-    isOpen ? `AGENT_RUN_WORKSPACE_${workspaceSlug}` : null,
+    isMounted ? `AGENT_RUN_WORKSPACE_${workspaceSlug}` : null,
     () => agentPlatformService.getWorkspaceSnapshot(workspaceSlug)
   );
   const { data: projectSnapshot, isLoading: isProjectLoading } = useSWR<AgentPlatformProjectSnapshot>(
-    isOpen ? `AGENT_RUN_PROJECT_${workspaceSlug}_${projectId}` : null,
+    isMounted ? `AGENT_RUN_PROJECT_${workspaceSlug}_${projectId}` : null,
     () => agentPlatformService.getProjectSnapshot(workspaceSlug, projectId)
   );
 
@@ -134,137 +133,123 @@ export function AgentRunActionButton(props: Props) {
   if (!isMounted) return null;
 
   return (
-    <>
-      <Button
+    <details className="basis-full">
+      <summary
+        aria-disabled={disabled}
+        className="inline-flex h-7 cursor-pointer list-none items-center justify-center gap-1 rounded-md border border-strong bg-layer-2 px-2 text-body-xs-medium text-secondary shadow-raised-100 transition-colors hover:bg-layer-2-hover active:bg-layer-2-active aria-disabled:pointer-events-none aria-disabled:border-subtle-1 aria-disabled:bg-layer-transparent aria-disabled:text-disabled"
         data-testid="agent-run-action-trigger"
-        disabled={disabled}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setIsOpen((current) => !current);
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          event.stopPropagation();
-          setIsOpen((current) => !current);
-        }}
-        size="lg"
-        type="button"
-        variant="secondary"
+        tabIndex={disabled ? -1 : 0}
       >
         <Bot className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
         <span className="text-body-xs-medium">{t("issue.agent_run.action")}</span>
-      </Button>
+      </summary>
 
-      {isOpen && (
-        <div className="basis-full rounded border border-subtle bg-surface-1 p-4">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-body-sm-medium text-primary">{t("issue.agent_run.title")}</h3>
-              <p className="mt-1 text-body-xs-regular text-secondary">
-                {t("issue.agent_run.work_item_id")}: {issueId}
-              </p>
-            </div>
-            <a
-              className="text-custom-primary-100 inline-flex items-center gap-1 text-body-xs-medium hover:underline"
-              href={settingsHref}
-            >
-              {t("issue.agent_run.project_agents")}
-              <ExternalLink className="h-3 w-3" strokeWidth={2} />
-            </a>
+      <div className="mt-2 rounded border border-subtle bg-surface-1 p-4">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-body-sm-medium text-primary">{t("issue.agent_run.title")}</h3>
+            <p className="mt-1 text-body-xs-regular text-secondary">
+              {t("issue.agent_run.work_item_id")}: {issueId}
+            </p>
           </div>
-
-          {isLoading ? (
-            <div className="rounded border border-dashed border-subtle p-4 text-body-sm-regular text-tertiary">
-              {t("common.loading")}
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <SelectField
-                  label={t("issue.agent_run.agent")}
-                  onChange={setSelectedAgentId}
-                  options={activeAgents.map((agent) => ({ label: agent.name, value: agent.id }))}
-                  value={selectedAgent?.id ?? ""}
-                />
-                <SelectField
-                  label={t("issue.agent_run.repository")}
-                  onChange={setSelectedRepositoryId}
-                  options={activeRepositories.map((repository) => ({
-                    label: repository.full_name || repository.name,
-                    value: repository.id,
-                  }))}
-                  value={selectedRepository?.id ?? ""}
-                />
-                <SelectField
-                  label={t("issue.agent_run.worker")}
-                  onChange={setSelectedWorkerId}
-                  options={activeWorkers.map((worker) => ({ label: worker.name, value: worker.id }))}
-                  value={selectedWorker?.id ?? ""}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <SummaryCell label={t("issue.agent_run.model")} value={selectedAgent?.model || "-"} />
-                <SummaryCell
-                  label={t("issue.agent_run.target_branch")}
-                  value={selectedRepository?.default_branch || "default"}
-                />
-                <SummaryCell
-                  label={t("issue.agent_run.secret_keys")}
-                  value={availableSecretKeys.length ? availableSecretKeys.join(", ") : "-"}
-                />
-              </div>
-
-              <div className="rounded border border-subtle bg-surface-2 p-3">
-                <div className="mb-2 text-body-xs-medium text-tertiary uppercase">
-                  {t("issue.agent_run.prompt_stack")}
-                </div>
-                {promptStack.length > 0 ? (
-                  <div className="grid gap-2">
-                    {promptStack.map((item) => (
-                      <div key={item.binding.id} className="rounded border border-subtle bg-surface-1 p-2">
-                        <div className="flex min-w-0 items-center justify-between gap-2">
-                          <span className="truncate text-body-xs-medium text-primary">{item.name}</span>
-                          <span className="text-caption-regular shrink-0 text-tertiary">
-                            {item.scope} · v{item.version?.version ?? "?"}
-                          </span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-body-xs-regular text-secondary">{item.body}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-body-sm-regular text-tertiary">{t("issue.agent_run.no_prompt_stack")}</p>
-                )}
-              </div>
-
-              <div className="rounded border border-subtle bg-surface-2 p-3">
-                <div className="mb-2 text-body-xs-medium text-tertiary uppercase">
-                  {t("issue.agent_run.assembled_prompt")}
-                </div>
-                <pre className="max-h-64 overflow-auto rounded bg-surface-1 p-3 text-body-xs-regular break-words whitespace-pre-wrap text-primary">
-                  {assembledPrompt || t("issue.agent_run.empty_preview")}
-                </pre>
-              </div>
-
-              <div>
-                <Button
-                  disabled={!selectedAgent || !selectedRepository || !selectedWorker}
-                  onClick={copyRunIntent}
-                  size="lg"
-                  type="button"
-                >
-                  <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-                  {t("issue.agent_run.copy_intent")}
-                </Button>
-              </div>
-            </div>
-          )}
+          <a
+            className="text-custom-primary-100 inline-flex items-center gap-1 text-body-xs-medium hover:underline"
+            href={settingsHref}
+          >
+            {t("issue.agent_run.project_agents")}
+            <ExternalLink className="h-3 w-3" strokeWidth={2} />
+          </a>
         </div>
-      )}
-    </>
+
+        {isLoading ? (
+          <div className="rounded border border-dashed border-subtle p-4 text-body-sm-regular text-tertiary">
+            {t("common.loading")}
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <SelectField
+                label={t("issue.agent_run.agent")}
+                onChange={setSelectedAgentId}
+                options={activeAgents.map((agent) => ({ label: agent.name, value: agent.id }))}
+                value={selectedAgent?.id ?? ""}
+              />
+              <SelectField
+                label={t("issue.agent_run.repository")}
+                onChange={setSelectedRepositoryId}
+                options={activeRepositories.map((repository) => ({
+                  label: repository.full_name || repository.name,
+                  value: repository.id,
+                }))}
+                value={selectedRepository?.id ?? ""}
+              />
+              <SelectField
+                label={t("issue.agent_run.worker")}
+                onChange={setSelectedWorkerId}
+                options={activeWorkers.map((worker) => ({ label: worker.name, value: worker.id }))}
+                value={selectedWorker?.id ?? ""}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <SummaryCell label={t("issue.agent_run.model")} value={selectedAgent?.model || "-"} />
+              <SummaryCell
+                label={t("issue.agent_run.target_branch")}
+                value={selectedRepository?.default_branch || "default"}
+              />
+              <SummaryCell
+                label={t("issue.agent_run.secret_keys")}
+                value={availableSecretKeys.length ? availableSecretKeys.join(", ") : "-"}
+              />
+            </div>
+
+            <div className="rounded border border-subtle bg-surface-2 p-3">
+              <div className="mb-2 text-body-xs-medium text-tertiary uppercase">
+                {t("issue.agent_run.prompt_stack")}
+              </div>
+              {promptStack.length > 0 ? (
+                <div className="grid gap-2">
+                  {promptStack.map((item) => (
+                    <div key={item.binding.id} className="rounded border border-subtle bg-surface-1 p-2">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="truncate text-body-xs-medium text-primary">{item.name}</span>
+                        <span className="text-caption-regular shrink-0 text-tertiary">
+                          {item.scope} · v{item.version?.version ?? "?"}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-body-xs-regular text-secondary">{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-body-sm-regular text-tertiary">{t("issue.agent_run.no_prompt_stack")}</p>
+              )}
+            </div>
+
+            <div className="rounded border border-subtle bg-surface-2 p-3">
+              <div className="mb-2 text-body-xs-medium text-tertiary uppercase">
+                {t("issue.agent_run.assembled_prompt")}
+              </div>
+              <pre className="max-h-64 overflow-auto rounded bg-surface-1 p-3 text-body-xs-regular break-words whitespace-pre-wrap text-primary">
+                {assembledPrompt || t("issue.agent_run.empty_preview")}
+              </pre>
+            </div>
+
+            <div>
+              <Button
+                disabled={!selectedAgent || !selectedRepository || !selectedWorker}
+                onClick={copyRunIntent}
+                size="lg"
+                type="button"
+              >
+                <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+                {t("issue.agent_run.copy_intent")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
