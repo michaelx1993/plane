@@ -61,6 +61,8 @@ export function AgentRunActionButton(props: Props) {
   }, []);
 
   useEffect(() => {
+    if (!isMounted) return;
+
     const trigger = triggerRef.current;
     if (!trigger) return;
 
@@ -73,7 +75,7 @@ export function AgentRunActionButton(props: Props) {
     trigger.addEventListener("click", togglePanel);
 
     return () => trigger.removeEventListener("click", togglePanel);
-  }, []);
+  }, [isMounted]);
 
   const { data: workspaceSnapshot, isLoading: isWorkspaceLoading } = useSWR<AgentPlatformWorkspaceSnapshot>(
     isOpen ? `AGENT_RUN_WORKSPACE_${workspaceSlug}` : null,
