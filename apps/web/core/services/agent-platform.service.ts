@@ -8,6 +8,12 @@ import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 
 type ListResponse<T> = T[] | { results?: T[] };
+type AgentPlatformError = {
+  response?: {
+    data?: unknown;
+    status?: number;
+  };
+};
 
 export type AgentPromptScope = "agent" | "project" | "role" | "playbook" | "task" | "workspace";
 export type AgentPromptKind =
@@ -227,18 +233,28 @@ export class AgentPlatformService extends APIService {
   }
 
   private async list<T>(workspaceSlug: string, resource: string): Promise<T[]> {
-    return this.get(`/api/v1/workspaces/${workspaceSlug}/${resource}/`)
-      .then((response) => unwrapList<T>(response?.data))
+    return this.get(`/api/v1/workspaces/${workspaceSlug}/${resource}/`, {}, { validateStatus: null })
+      .then((response) => {
+        if (response?.status === 401 || response?.status === 403) return [];
+        if (response?.status >= 400) throw response?.data;
+        return unwrapList<T>(response?.data);
+      })
       .catch((error) => {
-        throw error?.response?.data ?? error;
+        const agentError = error as AgentPlatformError;
+        if (agentError.response?.status === 401 || agentError.response?.status === 403) return [];
+        throw agentError.response?.data ?? error;
       });
   }
 
   private async create<T>(workspaceSlug: string, resource: string, payload: object): Promise<T> {
-    return this.post(`/api/v1/workspaces/${workspaceSlug}/${resource}/`, payload)
-      .then((response) => response?.data as T)
+    return this.post(`/api/v1/workspaces/${workspaceSlug}/${resource}/`, payload, { validateStatus: null })
+      .then((response) => {
+        if (response?.status >= 400) throw response?.data;
+        return response?.data as T;
+      })
       .catch((error) => {
-        throw error?.response?.data ?? error;
+        const agentError = error as AgentPlatformError;
+        throw agentError.response?.data ?? error;
       });
   }
 }

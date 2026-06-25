@@ -53,6 +53,12 @@ assert.ok(
   "agent platform service should cover project agent resources"
 );
 assert.ok(
+  serviceSource.includes("{ validateStatus: null }") &&
+    serviceSource.includes("response?.status === 401 || response?.status === 403") &&
+    serviceSource.includes("return [];"),
+  "agent platform snapshot reads should not trigger global auth redirects when optional config APIs deny access"
+);
+assert.ok(
   workspacePageSource.includes("createAgent") &&
     workspacePageSource.includes("createPromptVersion") &&
     workspacePageSource.includes("createPromptBinding") &&
