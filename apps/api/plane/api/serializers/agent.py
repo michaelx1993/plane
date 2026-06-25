@@ -163,7 +163,11 @@ class AgentPromptBindingSerializer(AgentWorkspaceScopedSerializer):
             if instance is not None and str(instance.workspace_id) != str(workspace_id):
                 raise serializers.ValidationError({field_name: "Object must belong to the current workspace."})
         version_policy = attrs.get("version_policy", getattr(self.instance, "version_policy", "latest"))
-        pinned_version = attrs.get("pinned_version") or attrs.get("prompt_version") or getattr(self.instance, "pinned_version", None)
+        pinned_version = (
+            attrs.get("pinned_version")
+            or attrs.get("prompt_version")
+            or getattr(self.instance, "pinned_version", None)
+        )
         if version_policy == "pinned" and pinned_version is None:
             raise serializers.ValidationError({"pinned_version": "Pinned bindings require a prompt version."})
         if pinned_version is not None:
