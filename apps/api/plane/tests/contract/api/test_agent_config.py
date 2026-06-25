@@ -5,11 +5,35 @@
 import pytest
 from rest_framework import status
 
+from plane.api.views.agent import _agent_run_workflow_state
 from plane.db.models import AgentConfigOutbox, AgentPrompt, AgentPromptBinding
 
 
 @pytest.mark.contract
 class TestAgentConfigAPI:
+    def test_agent_run_workflow_state_maps_plane_state_groups(self):
+        state = type("StateStub", (), {"name": "In Progress", "group": "started"})()
+        assert _agent_run_workflow_state(state) == "Development"
+
+        state = type("StateStub", (), {"name": "Cancelled", "group": "cancelled"})()
+        assert _agent_run_workflow_state(state) == "Canceled"
+
+    @pytest.mark.django_db
+    def test_session_user_can_list_agent_config(self, session_client, workspace, create_user):
+        session_client.force_authenticate(user=create_user)
+        AgentPrompt.objects.create(
+            workspace=workspace,
+            key="rd-agent-base",
+            name="RD Agent Base",
+            scope="agent",
+            kind="instruction",
+        )
+
+        response = session_client.get(f"/api/v1/workspaces/{workspace.slug}/agent-prompts/")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["results"][0]["key"] == "rd-agent-base"
+
     @pytest.mark.django_db
     def test_create_agent_writes_config_outbox(self, api_key_client, workspace, create_user):
         response = api_key_client.post(

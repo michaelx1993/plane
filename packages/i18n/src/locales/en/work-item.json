@@ -41,6 +41,10 @@
       "assembled_prompt": "Assembled prompt",
       "no_prompt_stack": "No active prompt bindings for this agent.",
       "empty_preview": "No prompt preview available.",
+      "start": "Start agent run",
+      "queued": "Agent run queued.",
+      "queued_unrouted": "Agent run queued, but repository routing is not ready.",
+      "queue_failed": "Agent run could not be queued.",
       "copy_intent": "Copy run intent",
       "copied": "Run intent copied.",
       "copy_failed": "Run intent could not be copied."

@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, Copy, ExternalLink } from "lucide-react";
+import { Bot, Copy, ExternalLink, Send } from "lucide-react";
 import useSWR from "swr";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -53,6 +53,7 @@ export function AgentRunActionButton(props: Props) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -127,6 +128,37 @@ export function AgentRunActionButton(props: Props) {
         title: t("common.error"),
         message: t("issue.agent_run.copy_failed"),
       });
+    }
+  };
+
+  const submitRunIntent = async () => {
+    if (!selectedAgent || !selectedRepository || !selectedWorker || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await agentPlatformService.createRunIntent(workspaceSlug, {
+        project_id: projectId,
+        work_item_id: issueId,
+        agent_id: selectedAgent.id,
+        repository_id: selectedRepository.id,
+        worker_id: selectedWorker.id,
+        prompt_version_ids: promptStack.map((item) => item.version?.id).filter((id): id is string => !!id),
+        available_secret_keys: availableSecretKeys,
+      });
+
+      setToast({
+        type: TOAST_TYPE.SUCCESS,
+        title: t("common.success"),
+        message: response.task?.routed ? t("issue.agent_run.queued") : t("issue.agent_run.queued_unrouted"),
+      });
+    } catch {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: t("common.error"),
+        message: t("issue.agent_run.queue_failed"),
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -234,7 +266,16 @@ export function AgentRunActionButton(props: Props) {
               </pre>
             </div>
 
-            <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={!selectedAgent || !selectedRepository || !selectedWorker || isSubmitting}
+                onClick={submitRunIntent}
+                size="lg"
+                type="button"
+              >
+                <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                {isSubmitting ? t("common.loading") : t("issue.agent_run.start")}
+              </Button>
               <Button
                 disabled={!selectedAgent || !selectedRepository || !selectedWorker}
                 onClick={copyRunIntent}

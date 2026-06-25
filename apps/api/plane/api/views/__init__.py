@@ -23,6 +23,7 @@ from .agent import (
     AgentRepositoryListCreateAPIEndpoint,
     AgentRoleDetailAPIEndpoint,
     AgentRoleListCreateAPIEndpoint,
+    AgentRunIntentAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
     AgentUserAgentListCreateAPIEndpoint,
     AgentUserSecretKeyDetailAPIEndpoint,
