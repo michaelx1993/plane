@@ -49,11 +49,16 @@ const promptScopeOrder = new Map([
 export function AgentRunActionButton(props: Props) {
   const { workspaceSlug, projectId, issueId, disabled } = props;
   const { t } = useTranslation();
+  const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const trigger = triggerRef.current;
@@ -141,6 +146,8 @@ export function AgentRunActionButton(props: Props) {
       });
     }
   };
+
+  if (!isMounted) return null;
 
   return (
     <>
