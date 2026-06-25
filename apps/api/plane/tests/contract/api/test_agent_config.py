@@ -6,7 +6,17 @@ import pytest
 from rest_framework import status
 
 from plane.api.views.agent import _agent_run_workflow_state
-from plane.db.models import AgentConfigOutbox, AgentPrompt, AgentPromptBinding
+from plane.db.models import (
+    AgentConfigOutbox,
+    AgentPrompt,
+    AgentPromptBinding,
+    AgentRepository,
+    AgentUserAgent,
+    AgentWorkerCard,
+    Issue,
+    Project,
+    ProjectMember,
+)
 
 
 @pytest.mark.contract
@@ -177,3 +187,111 @@ class TestAgentConfigAPI:
         assert outbox.payload["key"] == "github-token"
         assert outbox.payload["provider_ref"] == "GITHUB_TOKEN"
         assert "value" not in outbox.payload
+
+    @pytest.mark.django_db
+    def test_agent_run_intent_forwards_selected_runtime_context(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("AGENT_CONTROL_PLANE_URL", "http://control-plane.test")
+        project = Project.objects.create(
+            name="Runtime Project",
+            identifier="RUN",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Build dispatch context",
+            workspace=workspace,
+            project=project,
+            sequence_id=7,
+        )
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-default",
+            name="Codex Default",
+            runtime="codex",
+            model="gpt-5-codex",
+        )
+        repository = AgentRepository.objects.create(
+            workspace=workspace,
+            project=project,
+            key="agent-control-plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="agent-control-plane",
+            full_name="michaelx1993/agent-control-plane",
+            url="https://github.com/michaelx1993/agent-control-plane",
+            clone_url="git@github.com:michaelx1993/agent-control-plane.git",
+            default_branch="main",
+        )
+        worker = AgentWorkerCard.objects.create(
+            workspace=workspace,
+            key="mac-studio-worker-1",
+            name="Mac Studio Worker",
+            worker_endpoint="http://80.251.222.30:3112",
+        )
+        posted = {}
+
+        class FakeResponse:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return {"ok": True, "queued": True, "task": {"taskId": "task-1"}}
+
+        def fake_post(url, json, headers, timeout):
+            posted.update({"url": url, "json": json, "headers": headers, "timeout": timeout})
+            return FakeResponse()
+
+        monkeypatch.setattr("plane.api.views.agent.requests.post", fake_post)
+
+        response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-runs/",
+            {
+                "project_id": str(project.id),
+                "work_item_id": str(issue.id),
+                "agent_id": str(agent.id),
+                "repository_id": str(repository.id),
+                "worker_id": str(worker.id),
+                "prompt_version_ids": ["prompt-version-1", ""],
+                "available_secret_keys": ["GITHUB_TOKEN"],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, f"Got {response.status_code}: {response.data!r}"
+        assert posted["url"] == "http://control-plane.test/api/runs"
+        identifier = f"{project.identifier}-{issue.sequence_id}"
+        assert posted["json"] == {
+            "source": "plane",
+            "planeProjectId": str(project.id),
+            "projectSlug": "run",
+            "externalTaskId": str(issue.id),
+            "identifier": identifier,
+            "title": "Build dispatch context",
+            "state": "Todo",
+            "priority": 5,
+            "url": f"http://testserver/{workspace.slug}/browse/{identifier}/",
+            "agentId": str(agent.id),
+            "agentKey": "codex-default",
+            "agentName": "Codex Default",
+            "agentRuntime": "codex",
+            "agentModel": "gpt-5-codex",
+            "repositoryId": str(repository.id),
+            "repositoryKey": "agent-control-plane",
+            "repositoryUrl": "git@github.com:michaelx1993/agent-control-plane.git",
+            "workerCardId": str(worker.id),
+            "workerKey": "mac-studio-worker-1",
+            "workerName": "Mac Studio Worker",
+            "workerEndpoint": "http://80.251.222.30:3112",
+            "promptVersionIds": ["prompt-version-1"],
+            "availableSecretKeys": ["GITHUB_TOKEN"],
+        }
