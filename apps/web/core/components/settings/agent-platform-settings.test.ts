@@ -78,10 +78,12 @@ assert.ok(
 assert.ok(
   agentRunActionSource.includes("getWorkspaceSnapshot") &&
     agentRunActionSource.includes("getProjectSnapshot") &&
+    agentRunActionSource.includes('addEventListener("click"') &&
+    agentRunActionSource.includes('data-testid="agent-run-action-trigger"') &&
     agentRunActionSource.includes("promptStack") &&
     agentRunActionSource.includes("availableSecretKeys") &&
     agentRunActionSource.includes("copyRunIntent"),
-  "Agent run action should assemble Agent, repository, worker, prompt stack, and secret-key preview"
+  "Agent run action should expose a resilient trigger and assemble Agent, repository, worker, prompt stack, and secret-key preview"
 );
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {
