@@ -521,6 +521,28 @@
           }
         }
       }
+    },
+    "agents": {
+      "label": "Agents",
+      "heading": "Project Agents",
+      "description": "Register the worker, project meta workspace, and repositories that coding agents need before they can run on this project.",
+      "worker_cards": "Worker Cards",
+      "project_workspace": "Project Workspace",
+      "repositories": "Repositories",
+      "key": "Key",
+      "worker_endpoint": "Worker endpoint",
+      "capabilities": "Capabilities",
+      "local_path": "Local path",
+      "default_branch": "Default branch",
+      "required_for_phase_1": "Required for Phase 1 coding tasks",
+      "create_worker": "Create worker card",
+      "create_project_workspace": "Create project workspace",
+      "create_repository": "Create repository",
+      "no_workers": "No worker cards yet.",
+      "no_project_workspace": "No project workspace configured yet.",
+      "no_repositories": "No repositories registered yet.",
+      "saved": "Project agent configuration saved.",
+      "save_failed": "Project agent configuration could not be saved."
     }
   }
 }

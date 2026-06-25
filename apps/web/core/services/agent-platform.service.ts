@@ -1,0 +1,203 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { API_BASE_URL } from "@plane/constants";
+import { APIService } from "@/services/api.service";
+
+type ListResponse<T> = T[] | { results?: T[] };
+
+export type AgentPromptType = "agent" | "project" | "role" | "playbook_task" | "business_system";
+
+export type AgentUserAgent = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  runtime: string;
+  model: string;
+  tools: string[];
+  defaults: Record<string, unknown>;
+  is_default: boolean;
+  is_active: boolean;
+};
+
+export type AgentPrompt = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  prompt_type: AgentPromptType;
+  visibility: string;
+  latest_version: number;
+  is_active: boolean;
+};
+
+export type AgentPromptVersion = {
+  id: string;
+  prompt: string;
+  version: number;
+  body: string;
+  variables: string[];
+  is_active: boolean;
+};
+
+export type AgentRole = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  prompt: string | null;
+  is_active: boolean;
+};
+
+export type AgentPromptBinding = {
+  id: string;
+  agent: string;
+  prompt: string;
+  prompt_version: string | null;
+  role: string | null;
+  slot: string;
+  sort_order: number;
+  is_required: boolean;
+  is_active: boolean;
+};
+
+export type AgentWorkerCard = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  worker_endpoint: string;
+  capabilities: string[];
+  labels: Record<string, unknown>;
+  is_active: boolean;
+};
+
+export type AgentProjectWorkspace = {
+  id: string;
+  project: string;
+  worker_card: string | null;
+  local_path: string;
+  status_path: string;
+  progress_path: string;
+  meta_path: string;
+  is_active: boolean;
+};
+
+export type AgentRepository = {
+  id: string;
+  project: string | null;
+  key: string;
+  provider: string;
+  name: string;
+  url: string;
+  default_branch: string;
+  local_path: string;
+  is_required: boolean;
+  is_active: boolean;
+};
+
+export type AgentPlatformWorkspaceSnapshot = {
+  agents: AgentUserAgent[];
+  prompts: AgentPrompt[];
+  promptVersions: AgentPromptVersion[];
+  roles: AgentRole[];
+  promptBindings: AgentPromptBinding[];
+};
+
+export type AgentPlatformProjectSnapshot = {
+  workerCards: AgentWorkerCard[];
+  projectWorkspaces: AgentProjectWorkspace[];
+  repositories: AgentRepository[];
+};
+
+export class AgentPlatformService extends APIService {
+  constructor() {
+    super(API_BASE_URL);
+  }
+
+  async getWorkspaceSnapshot(workspaceSlug: string): Promise<AgentPlatformWorkspaceSnapshot> {
+    const [agents, prompts, promptVersions, roles, promptBindings] = await Promise.all([
+      this.list<AgentUserAgent>(workspaceSlug, "agent-agents"),
+      this.list<AgentPrompt>(workspaceSlug, "agent-prompts"),
+      this.list<AgentPromptVersion>(workspaceSlug, "agent-prompt-versions"),
+      this.list<AgentRole>(workspaceSlug, "agent-roles"),
+      this.list<AgentPromptBinding>(workspaceSlug, "agent-prompt-bindings"),
+    ]);
+
+    return { agents, prompts, promptVersions, roles, promptBindings };
+  }
+
+  async getProjectSnapshot(workspaceSlug: string, projectId: string): Promise<AgentPlatformProjectSnapshot> {
+    const [workerCards, projectWorkspaces, repositories] = await Promise.all([
+      this.list<AgentWorkerCard>(workspaceSlug, "agent-worker-cards"),
+      this.list<AgentProjectWorkspace>(workspaceSlug, "agent-project-workspaces"),
+      this.list<AgentRepository>(workspaceSlug, "agent-repositories"),
+    ]);
+
+    return {
+      workerCards,
+      projectWorkspaces: projectWorkspaces.filter((item) => item.project === projectId),
+      repositories: repositories.filter((item) => item.project === projectId),
+    };
+  }
+
+  async createAgent(workspaceSlug: string, payload: Partial<AgentUserAgent>): Promise<AgentUserAgent> {
+    return this.create(workspaceSlug, "agent-agents", payload);
+  }
+
+  async createPrompt(workspaceSlug: string, payload: Partial<AgentPrompt>): Promise<AgentPrompt> {
+    return this.create(workspaceSlug, "agent-prompts", payload);
+  }
+
+  async createPromptVersion(workspaceSlug: string, payload: Partial<AgentPromptVersion>): Promise<AgentPromptVersion> {
+    return this.create(workspaceSlug, "agent-prompt-versions", payload);
+  }
+
+  async createPromptBinding(workspaceSlug: string, payload: Partial<AgentPromptBinding>): Promise<AgentPromptBinding> {
+    return this.create(workspaceSlug, "agent-prompt-bindings", payload);
+  }
+
+  async createRole(workspaceSlug: string, payload: Partial<AgentRole>): Promise<AgentRole> {
+    return this.create(workspaceSlug, "agent-roles", payload);
+  }
+
+  async createWorkerCard(workspaceSlug: string, payload: Partial<AgentWorkerCard>): Promise<AgentWorkerCard> {
+    return this.create(workspaceSlug, "agent-worker-cards", payload);
+  }
+
+  async createProjectWorkspace(
+    workspaceSlug: string,
+    payload: Partial<AgentProjectWorkspace>
+  ): Promise<AgentProjectWorkspace> {
+    return this.create(workspaceSlug, "agent-project-workspaces", payload);
+  }
+
+  async createRepository(workspaceSlug: string, payload: Partial<AgentRepository>): Promise<AgentRepository> {
+    return this.create(workspaceSlug, "agent-repositories", payload);
+  }
+
+  private async list<T>(workspaceSlug: string, resource: string): Promise<T[]> {
+    return this.get(`/api/v1/workspaces/${workspaceSlug}/${resource}/`)
+      .then((response) => unwrapList<T>(response?.data))
+      .catch((error) => {
+        throw error?.response?.data ?? error;
+      });
+  }
+
+  private async create<T>(workspaceSlug: string, resource: string, payload: object): Promise<T> {
+    return this.post(`/api/v1/workspaces/${workspaceSlug}/${resource}/`, payload)
+      .then((response) => response?.data as T)
+      .catch((error) => {
+        throw error?.response?.data ?? error;
+      });
+  }
+}
+
+function unwrapList<T>(payload: ListResponse<T>): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload.results ?? [];
+}

@@ -205,6 +205,21 @@ Backlog:
 - Show active run status: Claimed / Running / Completed / Failed.
 - Keep the embedded view read-only; writes still happen through Control Plane APIs.
 
+### P1: Agent Platform UI
+
+Plane now exposes the first editable Agent Platform surface in existing
+settings navigation:
+
+- Workspace Settings -> Agent Library: create User Agents, Prompts with an
+  initial Prompt Version, Roles, and Prompt Bindings.
+- Project Settings -> Agents: create Worker Cards, Project Workspace metadata,
+  and project Repositories required by Phase 1 coding tasks.
+
+The pages use the existing `/api/v1/workspaces/{slug}/agent-*` endpoints, so
+each create operation writes `agent_config_outbox` and remains consumable by
+Agent Control Plane projection sync. The UI does not start runs, manage worker
+leases, or access Agent Control Plane DB.
+
 ### P1: API/Webhook Regression
 
 Regression surface:
