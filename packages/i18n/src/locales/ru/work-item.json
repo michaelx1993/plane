@@ -23,7 +23,8 @@
       "dependency": "Добавить зависимость",
       "relation": "Добавить связь",
       "link": "Добавить ссылку",
-      "existing": "Добавить существующий рабочий элемент"
+      "existing": "Добавить существующий рабочий элемент",
+      "agent_run": "Run with agent"
     },
     "remove": {
       "label": "Удалить рабочий элемент",
@@ -266,6 +267,25 @@
       "click_to_downvote": "Нажмите, чтобы проголосовать против",
       "click_to_view_upvotes": "Нажмите, чтобы посмотреть голоса за",
       "click_to_view_downvotes": "Нажмите, чтобы посмотреть голоса против"
+    },
+    "agent_run": {
+      "action": "Run with agent",
+      "title": "Agent run preview",
+      "work_item_id": "Work item ID",
+      "project_agents": "Project Agents",
+      "agent": "Agent",
+      "repository": "Repository",
+      "worker": "Worker",
+      "model": "Model",
+      "target_branch": "Target branch",
+      "secret_keys": "Secret keys",
+      "prompt_stack": "Prompt stack",
+      "assembled_prompt": "Assembled prompt",
+      "no_prompt_stack": "No active prompt bindings for this agent.",
+      "empty_preview": "No prompt preview available.",
+      "copy_intent": "Copy run intent",
+      "copied": "Run intent copied.",
+      "copy_failed": "Run intent could not be copied."
     }
   },
   "sub_work_item": {

@@ -18,6 +18,8 @@ const workspacePageSource = read("apps/web/app/(all)/[workspaceSlug]/(settings)/
 const projectPageSource = read(
   "apps/web/app/(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/agents/page.tsx"
 );
+const issueWidgetActionSource = read("apps/web/core/components/issues/issue-detail-widgets/action-buttons.tsx");
+const agentRunActionSource = read("apps/web/core/components/issues/issue-detail-widgets/agent-run-action-button.tsx");
 const serviceSource = read("apps/web/core/services/agent-platform.service.ts");
 
 assert.ok(routeSource.includes(":workspaceSlug/settings/agents"), "workspace Agent Library route should be registered");
@@ -69,12 +71,26 @@ assert.ok(
     projectPageSource.includes("worktree_strategy"),
   "project Agents page should create worker cards, PRD workspace config, and repositories"
 );
+assert.ok(
+  issueWidgetActionSource.includes("AgentRunActionButton"),
+  "work item detail widgets should expose the Agent run action"
+);
+assert.ok(
+  agentRunActionSource.includes("getWorkspaceSnapshot") &&
+    agentRunActionSource.includes("getProjectSnapshot") &&
+    agentRunActionSource.includes("promptStack") &&
+    agentRunActionSource.includes("availableSecretKeys") &&
+    agentRunActionSource.includes("copyRunIntent"),
+  "Agent run action should assemble Agent, repository, worker, prompt stack, and secret-key preview"
+);
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {
   const workspaceMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/workspace-settings.json`));
   const projectMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/project-settings.json`));
+  const workItemMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/work-item.json`));
   assert.ok(workspaceMessages.workspace_settings.settings.agents.title, `${locale} workspace agent title is required`);
   assert.ok(projectMessages.project_settings.agents.label, `${locale} project agent label is required`);
+  assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
 }
 
 console.log("agent_platform_settings=passed");

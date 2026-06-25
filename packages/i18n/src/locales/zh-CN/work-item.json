@@ -23,7 +23,27 @@
       "dependency": "添加依赖",
       "relation": "添加关系",
       "link": "添加链接",
+      "agent_run": "交给 Agent",
       "existing": "添加现有工作项"
+    },
+    "agent_run": {
+      "action": "交给 Agent",
+      "title": "Agent 运行预览",
+      "work_item_id": "工作项 ID",
+      "project_agents": "项目 Agents",
+      "agent": "Agent",
+      "repository": "仓库",
+      "worker": "Worker",
+      "model": "模型",
+      "target_branch": "目标分支",
+      "secret_keys": "Secret keys",
+      "prompt_stack": "Prompt 栈",
+      "assembled_prompt": "组装后的 Prompt",
+      "no_prompt_stack": "这个 Agent 没有启用的 Prompt 绑定。",
+      "empty_preview": "暂无 Prompt 预览。",
+      "copy_intent": "复制运行意图",
+      "copied": "运行意图已复制。",
+      "copy_failed": "无法复制运行意图。"
     },
     "remove": {
       "label": "移除工作项",
