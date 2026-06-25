@@ -484,6 +484,33 @@
         "heading": "스크립트",
         "new_script": "새 스크립트",
         "description": "커스텀 스크립트와 자동화 규칙으로 워크플로우를 자동화하세요."
+      },
+      "agents": {
+        "title": "Agent Library",
+        "heading": "Agent Library",
+        "description": "Manage reusable user agents, prompts, roles, and prompt bindings that Agent Control Plane will project into runtime snapshots.",
+        "agent_library": "Agents",
+        "prompt_library": "Prompt Library",
+        "roles": "Roles",
+        "prompt_bindings": "Prompt Bindings",
+        "key": "Key",
+        "default_agent": "Use as the default agent",
+        "prompt_type": "Prompt type",
+        "prompt_body": "Prompt body",
+        "agent": "Agent",
+        "prompt_version": "Prompt version",
+        "order": "Order",
+        "required": "Required",
+        "create_agent": "Create agent",
+        "create_prompt": "Create prompt",
+        "create_role": "Create role",
+        "create_binding": "Create binding",
+        "no_agents": "No agents yet.",
+        "no_prompts": "No prompts yet.",
+        "no_roles": "No roles yet.",
+        "no_bindings": "No prompt bindings yet.",
+        "saved": "Agent configuration saved.",
+        "save_failed": "Agent configuration could not be saved."
       }
     },
     "empty_state": {

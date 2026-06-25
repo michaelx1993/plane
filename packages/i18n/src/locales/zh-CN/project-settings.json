@@ -197,6 +197,28 @@
         "duration": "提前提醒"
       }
     },
+    "agents": {
+      "label": "Agents",
+      "heading": "项目 Agents",
+      "description": "注册编码 Agent 执行本项目任务前需要的 Worker、项目记忆工作区和代码仓库。",
+      "worker_cards": "Worker Cards",
+      "project_workspace": "项目工作区",
+      "repositories": "仓库",
+      "key": "Key",
+      "worker_endpoint": "Worker 端点",
+      "capabilities": "能力",
+      "local_path": "本地路径",
+      "default_branch": "默认分支",
+      "required_for_phase_1": "第一阶段代码任务必需",
+      "create_worker": "创建 Worker Card",
+      "create_project_workspace": "创建项目工作区",
+      "create_repository": "注册仓库",
+      "no_workers": "暂无 Worker Card。",
+      "no_project_workspace": "暂无项目工作区配置。",
+      "no_repositories": "暂无注册仓库。",
+      "saved": "项目 Agent 配置已保存。",
+      "save_failed": "项目 Agent 配置保存失败。"
+    },
     "empty_state": {
       "labels": {
         "title": "尚无标签",

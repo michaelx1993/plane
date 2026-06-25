@@ -197,6 +197,28 @@
         "duration": "提前提醒"
       }
     },
+    "agents": {
+      "label": "Agents",
+      "heading": "專案 Agents",
+      "description": "註冊編碼 Agent 執行此專案任務前需要的 Worker、專案記憶工作區與程式碼倉庫。",
+      "worker_cards": "Worker Cards",
+      "project_workspace": "專案工作區",
+      "repositories": "倉庫",
+      "key": "Key",
+      "worker_endpoint": "Worker 端點",
+      "capabilities": "能力",
+      "local_path": "本地路徑",
+      "default_branch": "預設分支",
+      "required_for_phase_1": "第一階段程式碼任務必需",
+      "create_worker": "建立 Worker Card",
+      "create_project_workspace": "建立專案工作區",
+      "create_repository": "註冊倉庫",
+      "no_workers": "尚無 Worker Card。",
+      "no_project_workspace": "尚無專案工作區設定。",
+      "no_repositories": "尚無註冊倉庫。",
+      "saved": "專案 Agent 設定已儲存。",
+      "save_failed": "專案 Agent 設定儲存失敗。"
+    },
     "empty_state": {
       "labels": {
         "title": "尚無標籤",

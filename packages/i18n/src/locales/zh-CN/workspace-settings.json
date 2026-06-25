@@ -150,6 +150,33 @@
           }
         }
       },
+      "agents": {
+        "title": "Agent 库",
+        "heading": "Agent 库",
+        "description": "管理可复用的用户级 Agent、Prompt、角色和 Prompt 绑定，Agent Control Plane 会同步为运行时快照。",
+        "agent_library": "Agents",
+        "prompt_library": "Prompt 库",
+        "roles": "角色",
+        "prompt_bindings": "Prompt 绑定",
+        "key": "Key",
+        "default_agent": "作为默认 Agent",
+        "prompt_type": "Prompt 类型",
+        "prompt_body": "Prompt 内容",
+        "agent": "Agent",
+        "prompt_version": "Prompt 版本",
+        "order": "顺序",
+        "required": "必需",
+        "create_agent": "创建 Agent",
+        "create_prompt": "创建 Prompt",
+        "create_role": "创建角色",
+        "create_binding": "创建绑定",
+        "no_agents": "暂无 Agent。",
+        "no_prompts": "暂无 Prompt。",
+        "no_roles": "暂无角色。",
+        "no_bindings": "暂无 Prompt 绑定。",
+        "saved": "Agent 配置已保存。",
+        "save_failed": "Agent 配置保存失败。"
+      },
       "api_tokens": {
         "heading": "API 令牌",
         "description": "生成安全的 API 令牌，将您的数据与外部系统和应用程序集成。",
