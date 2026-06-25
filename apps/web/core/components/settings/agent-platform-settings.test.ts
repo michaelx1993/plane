@@ -78,9 +78,12 @@ assert.ok(
 assert.ok(
   agentRunActionSource.includes("getWorkspaceSnapshot") &&
     agentRunActionSource.includes("getProjectSnapshot") &&
-    agentRunActionSource.includes("onClick={(event)") &&
+    agentRunActionSource.includes("<details") &&
+    agentRunActionSource.includes("<summary") &&
     agentRunActionSource.includes("isMounted") &&
     agentRunActionSource.includes("if (!isMounted) return null") &&
+    agentRunActionSource.includes("isMounted ? `AGENT_RUN_WORKSPACE_") &&
+    agentRunActionSource.includes("isMounted ? `AGENT_RUN_PROJECT_") &&
     agentRunActionSource.includes('data-testid="agent-run-action-trigger"') &&
     agentRunActionSource.includes("promptStack") &&
     agentRunActionSource.includes("availableSecretKeys") &&
