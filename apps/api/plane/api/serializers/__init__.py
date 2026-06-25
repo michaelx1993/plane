@@ -4,6 +4,17 @@
 
 from .user import UserLiteSerializer
 from .workspace import WorkspaceLiteSerializer
+from .agent import (
+    AgentConfigOutboxSerializer,
+    AgentPromptBindingSerializer,
+    AgentPromptSerializer,
+    AgentPromptVersionSerializer,
+    AgentProjectWorkspaceSerializer,
+    AgentRepositorySerializer,
+    AgentRoleSerializer,
+    AgentUserAgentSerializer,
+    AgentWorkerCardSerializer,
+)
 from .project import (
     ProjectSerializer,
     ProjectLiteSerializer,

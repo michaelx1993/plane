@@ -137,6 +137,54 @@ PAT/API/webhook/rate-limit smoke that must run against a live Plane deployment.
 
 ## Agent Control Plane Backlog
 
+### P0: Agent Platform Source Tables
+
+Plane owns the editable configuration source of truth for the first Agent
+Platform slice. Agent Control Plane owns runtime projections, dispatch, lease,
+retry, run events, and worker state.
+
+Source tables added under the Plane `db` app:
+
+- `agent_user_agents`: user/workspace-level agent definitions.
+- `agent_prompts`: prompt metadata and type (`agent`, `project`, `role`,
+  `playbook_task`, `business_system`).
+- `agent_prompt_versions`: immutable prompt bodies and configured effective
+  versions.
+- `agent_prompt_bindings`: ordered prompt composition for an agent.
+- `agent_roles`: reusable role definitions.
+- `agent_worker_cards`: selectable worker cards for real-machine execution.
+- `agent_project_workspaces`: project local workspace and status/progress/meta
+  document paths.
+- `agent_repositories`: registered repositories used by project workspaces.
+- `agent_config_outbox`: monotonic workspace-scoped change feed consumed by
+  Agent Control Plane.
+
+External API endpoints use existing Plane API key auth:
+
+```text
+GET  /api/v1/workspaces/{slug}/agent-config-outbox/?after_id=0&limit=100
+GET  /api/v1/workspaces/{slug}/agent-agents/
+POST /api/v1/workspaces/{slug}/agent-agents/
+GET  /api/v1/workspaces/{slug}/agent-prompts/
+POST /api/v1/workspaces/{slug}/agent-prompts/
+GET  /api/v1/workspaces/{slug}/agent-prompt-versions/
+POST /api/v1/workspaces/{slug}/agent-prompt-versions/
+GET  /api/v1/workspaces/{slug}/agent-roles/
+POST /api/v1/workspaces/{slug}/agent-roles/
+GET  /api/v1/workspaces/{slug}/agent-prompt-bindings/
+POST /api/v1/workspaces/{slug}/agent-prompt-bindings/
+GET  /api/v1/workspaces/{slug}/agent-worker-cards/
+POST /api/v1/workspaces/{slug}/agent-worker-cards/
+GET  /api/v1/workspaces/{slug}/agent-project-workspaces/
+POST /api/v1/workspaces/{slug}/agent-project-workspaces/
+GET  /api/v1/workspaces/{slug}/agent-repositories/
+POST /api/v1/workspaces/{slug}/agent-repositories/
+```
+
+Each create/update/delete writes one `agent_config_outbox` record in the same
+database transaction. ACP must poll the outbox by `after_id` and persist its own
+last cursor per workspace.
+
 ### P1: Repo Field
 
 Current MVP uses `repo:<slug>` labels because Plane custom properties are not reliable enough in the validated self-host path.
