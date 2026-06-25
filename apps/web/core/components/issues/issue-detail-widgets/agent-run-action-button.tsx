@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Copy, ExternalLink } from "lucide-react";
 import useSWR from "swr";
 // plane imports
@@ -21,9 +21,6 @@ import {
   type AgentUserAgent,
   type AgentWorkerCard,
 } from "@/services/agent-platform.service";
-// local imports
-import { IssueDetailWidgetButton } from "./widget-button";
-
 type Props = {
   workspaceSlug: string;
   projectId: string;
@@ -56,6 +53,22 @@ export function AgentRunActionButton(props: Props) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const togglePanel = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen((current) => !current);
+    };
+
+    trigger.addEventListener("click", togglePanel);
+
+    return () => trigger.removeEventListener("click", togglePanel);
+  }, []);
 
   const { data: workspaceSnapshot, isLoading: isWorkspaceLoading } = useSWR<AgentPlatformWorkspaceSnapshot>(
     isOpen ? `AGENT_RUN_WORKSPACE_${workspaceSlug}` : null,
@@ -131,12 +144,23 @@ export function AgentRunActionButton(props: Props) {
 
   return (
     <>
-      <IssueDetailWidgetButton
+      <Button
+        data-testid="agent-run-action-trigger"
         disabled={disabled}
-        icon={<Bot className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />}
-        onClick={() => setIsOpen((current) => !current)}
-        title={t("issue.agent_run.action")}
-      />
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          setIsOpen((current) => !current);
+        }}
+        ref={triggerRef}
+        size="lg"
+        type="button"
+        variant="secondary"
+      >
+        <Bot className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+        <span className="text-body-xs-medium">{t("issue.agent_run.action")}</span>
+      </Button>
 
       {isOpen && (
         <div className="basis-full rounded border border-subtle bg-surface-1 p-4">
