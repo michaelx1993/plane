@@ -101,7 +101,6 @@ export function AgentRunActionButton(props: Props) {
   );
 
   const settingsHref = `/${workspaceSlug}/settings/projects/${projectId}/agents`;
-  const triggerId = `agent-run-${issueId}`;
   const isLoading = isWorkspaceLoading || isProjectLoading;
   const runIntent = {
     workItemId: issueId,
@@ -135,17 +134,16 @@ export function AgentRunActionButton(props: Props) {
 
   return (
     <div className="basis-full">
-      <input className="peer sr-only" disabled={disabled} id={triggerId} type="checkbox" />
-      <label
-        className="inline-flex h-7 w-fit cursor-pointer items-center justify-center gap-1 rounded-md border border-strong bg-layer-2 px-2 text-body-xs-medium text-secondary shadow-raised-100 transition-colors peer-disabled:pointer-events-none peer-disabled:border-subtle-1 peer-disabled:bg-layer-transparent peer-disabled:text-disabled hover:bg-layer-2-hover active:bg-layer-2-active"
+      <div
+        aria-disabled={disabled}
+        className="inline-flex h-7 w-fit items-center justify-center gap-1 rounded-md border border-strong bg-layer-2 px-2 text-body-xs-medium text-secondary shadow-raised-100"
         data-testid="agent-run-action-trigger"
-        htmlFor={triggerId}
       >
         <Bot className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
         <span className="text-body-xs-medium">{t("issue.agent_run.action")}</span>
-      </label>
+      </div>
 
-      <div className="mt-2 hidden rounded border border-subtle bg-surface-1 p-4 peer-checked:block">
+      <div className="mt-2 rounded border border-subtle bg-surface-1 p-4">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-body-sm-medium text-primary">{t("issue.agent_run.title")}</h3>

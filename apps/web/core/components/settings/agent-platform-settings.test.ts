@@ -78,9 +78,9 @@ assert.ok(
 assert.ok(
   agentRunActionSource.includes("getWorkspaceSnapshot") &&
     agentRunActionSource.includes("getProjectSnapshot") &&
-    agentRunActionSource.includes('type="checkbox"') &&
-    agentRunActionSource.includes("htmlFor={triggerId}") &&
-    agentRunActionSource.includes("peer-checked:block") &&
+    agentRunActionSource.includes("issue.agent_run.title") &&
+    !agentRunActionSource.includes('type="checkbox"') &&
+    !agentRunActionSource.includes("peer-checked:block") &&
     agentRunActionSource.includes("isMounted") &&
     agentRunActionSource.includes("if (!isMounted) return null") &&
     agentRunActionSource.includes("isMounted ? `AGENT_RUN_WORKSPACE_") &&
