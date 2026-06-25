@@ -188,11 +188,20 @@ GET  /api/v1/workspaces/{slug}/agent-project-workspaces/
 POST /api/v1/workspaces/{slug}/agent-project-workspaces/
 GET  /api/v1/workspaces/{slug}/agent-repositories/
 POST /api/v1/workspaces/{slug}/agent-repositories/
+POST /api/v1/workspaces/{slug}/agent-runs/
 ```
 
 Each create/update/delete writes one `agent_config_outbox` record in the same
 database transaction. ACP must poll the outbox by `after_id` and persist its own
 last cursor per workspace.
+
+`agent-runs` accepts the selected `agent_id`, `repository_id`, `worker_id`,
+`prompt_version_ids`, and `available_secret_keys`, resolves the readable keys
+from Plane source tables, and forwards them to Agent Control Plane as a run
+intent. The endpoint validates that the selected repository belongs to the
+current project and that the selected Agent/Worker Card belong to the current
+workspace. ACP remains responsible for dispatch, worker leases, run snapshots,
+events, and writeback.
 
 ### P1: Repo Field
 

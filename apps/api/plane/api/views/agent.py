@@ -287,6 +287,8 @@ class AgentRunIntentAPIEndpoint(BaseAPIView):
         project_id = request.data.get("project_id")
         work_item_id = request.data.get("work_item_id")
         repository_id = request.data.get("repository_id")
+        agent_id = request.data.get("agent_id")
+        worker_id = request.data.get("worker_id")
         if not project_id or not work_item_id:
             return Response(
                 {"error": "project_id and work_item_id are required."},
@@ -295,15 +297,30 @@ class AgentRunIntentAPIEndpoint(BaseAPIView):
 
         project = get_object_or_404(Project, id=project_id, workspace__slug=slug)
         issue = _resolve_agent_run_issue(slug, project.id, str(work_item_id))
+        agent = None
+        if agent_id:
+            agent = get_object_or_404(
+                AgentUserAgent,
+                id=agent_id,
+                workspace__slug=slug,
+            )
         repository = None
         if repository_id:
             repository = get_object_or_404(
                 AgentRepository,
                 id=repository_id,
                 workspace__slug=slug,
+                project=project,
+            )
+        worker = None
+        if worker_id:
+            worker = get_object_or_404(
+                AgentWorkerCard,
+                id=worker_id,
+                workspace__slug=slug,
             )
 
-        payload = _build_agent_run_intent_payload(request, slug, project, issue, repository)
+        payload = _build_agent_run_intent_payload(request, slug, project, issue, agent, repository, worker)
         headers = {"Content-Type": "application/json"}
         token = os.environ.get("AGENT_CONTROL_PLANE_TOKEN", "").strip()
         if token:
@@ -370,7 +387,7 @@ def _resolve_agent_run_issue(slug, project_id, work_item_id):
     raise Http404
 
 
-def _build_agent_run_intent_payload(request, slug, project, issue, repository):
+def _build_agent_run_intent_payload(request, slug, project, issue, agent, repository, worker):
     identifier = f"{project.identifier}-{issue.sequence_id}"
     payload = {
         "source": "plane",
@@ -384,15 +401,51 @@ def _build_agent_run_intent_payload(request, slug, project, issue, repository):
         "url": request.build_absolute_uri(f"/{slug}/browse/{identifier}/"),
     }
 
+    if agent:
+        payload.update(
+            {
+                "agentId": str(agent.id),
+                "agentKey": agent.key,
+                "agentName": agent.name,
+                "agentRuntime": agent.runtime,
+                "agentModel": agent.model,
+            }
+        )
+
     if repository:
         payload.update(
             {
+                "repositoryId": str(repository.id),
                 "repositoryKey": repository.key,
                 "repositoryUrl": repository.clone_url or repository.url,
             }
         )
 
+    if worker:
+        payload.update(
+            {
+                "workerCardId": str(worker.id),
+                "workerKey": worker.key,
+                "workerName": worker.name,
+                "workerEndpoint": worker.worker_endpoint,
+            }
+        )
+
+    prompt_version_ids = _clean_agent_run_string_list(request.data.get("prompt_version_ids"))
+    if prompt_version_ids:
+        payload["promptVersionIds"] = prompt_version_ids
+
+    available_secret_keys = _clean_agent_run_string_list(request.data.get("available_secret_keys"))
+    if available_secret_keys:
+        payload["availableSecretKeys"] = available_secret_keys
+
     return payload
+
+
+def _clean_agent_run_string_list(value):
+    if not isinstance(value, list):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 
 
 def _agent_run_priority(priority):
