@@ -535,8 +535,7 @@ export function AgentPromptLibraryPage(props: TAgentPromptLibraryPageProps) {
                           {promptVersionsForSelectedPrompt.length === 0 ? (
                             <EmptyState message={t("workspace_settings.settings.agents.no_versions")} />
                           ) : (
-                            promptVersionsForSelectedPrompt
-                              .slice()
+                            [...promptVersionsForSelectedPrompt]
                               .toSorted((a, b) => b.version - a.version)
                               .map((version) => (
                                 <div key={version.id} className="rounded border border-subtle bg-surface-1 p-3">
@@ -786,8 +785,7 @@ function PromptStack(props: { agent: AgentUserAgent; empty: string }) {
     <section>
       <SectionHeader icon={<Link2 className="size-4" />} title="Prompt stack" />
       <div className="grid gap-2">
-        {stack
-          .slice()
+        {[...stack]
           .toSorted((a, b) => a.sort_order - b.sort_order)
           .map((item) => (
             <div key={item.id} className="rounded border border-subtle bg-surface-1 p-3">
