@@ -1,7 +1,7 @@
 # Agent 托管与流程控制中心 PRD
 
-Status: Draft PRD
-Last updated: 2026-06-26
+Status: Active PRD
+Last updated: 2026-06-27
 Source repo: `michaelx1993/plane`
 
 ## 定位
