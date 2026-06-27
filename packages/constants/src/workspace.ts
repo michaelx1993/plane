@@ -199,33 +199,58 @@ export interface IWorkspaceSidebarNavigationItem {
 }
 
 export const WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS: Record<string, IWorkspaceSidebarNavigationItem> = {
-  views: {
-    key: "views",
-    labelTranslationKey: "views",
-    href: `/workspace-views/all-issues/`,
+  tasks: {
+    key: "tasks",
+    labelTranslationKey: "sidebar.tasks",
+    href: `/tasks/`,
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
-    highlight: (pathname: string, url: string) => pathname.includes(url),
+    highlight: (pathname: string, url: string) =>
+      pathname === url || pathname === url.replace(/\/$/, "") || pathname === url.replace(/tasks\/?$/, ""),
   },
-  analytics: {
-    key: "analytics",
-    labelTranslationKey: "analytics",
-    href: `/analytics/`,
+  agents: {
+    key: "agents",
+    labelTranslationKey: "sidebar.agents",
+    href: `/agents/`,
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
     highlight: (pathname: string, url: string) => pathname.includes(url),
   },
-  archives: {
-    key: "archives",
-    labelTranslationKey: "archives",
-    href: `/projects/archives/`,
+  prompts: {
+    key: "prompts",
+    labelTranslationKey: "sidebar.prompts",
+    href: `/prompts/`,
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+    highlight: (pathname: string, url: string) => pathname.includes(url),
+  },
+  workflows: {
+    key: "workflows",
+    labelTranslationKey: "sidebar.workflows",
+    href: `/workflows/`,
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+    highlight: (pathname: string, url: string) => pathname.includes(url),
+  },
+  workers: {
+    key: "workers",
+    labelTranslationKey: "sidebar.workers",
+    href: `/workers/`,
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+    highlight: (pathname: string, url: string) => pathname.includes(url),
+  },
+  "work-directories": {
+    key: "work-directories",
+    labelTranslationKey: "sidebar.work_directories",
+    href: `/work-directories/`,
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
     highlight: (pathname: string, url: string) => pathname.includes(url),
   },
 };
 
 export const WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [
-  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["views"],
-  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["analytics"],
-  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["archives"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["tasks"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["agents"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["prompts"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["workflows"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["workers"],
+  WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["work-directories"],
 ];
 
 export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspaceSidebarNavigationItem> = {
@@ -273,13 +298,9 @@ export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspac
   },
 };
 
-export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [
-  WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["home"],
-];
+export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [];
 
-export const WORKSPACE_SIDEBAR_STATIC_PINNED_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [
-  WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["projects"],
-];
+export const WORKSPACE_SIDEBAR_STATIC_PINNED_NAVIGATION_ITEMS_LINKS: IWorkspaceSidebarNavigationItem[] = [];
 
 export const IS_FAVORITE_MENU_OPEN = "is_favorite_menu_open";
 export const WORKSPACE_DEFAULT_SEARCH_RESULT: IWorkspaceSearchResults = {

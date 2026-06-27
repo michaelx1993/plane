@@ -17,6 +17,7 @@ import {
   YourWorkIcon,
 } from "@plane/propel/icons";
 import { cn } from "@plane/utils";
+import { Bot, FileText, FolderGit2, HardDrive, ListChecks, Workflow } from "lucide-react";
 
 export const getSidebarNavigationItemIcon = (key: string, className: string = "") => {
   switch (key) {
@@ -26,6 +27,18 @@ export const getSidebarNavigationItemIcon = (key: string, className: string = ""
       return <InboxIcon className={cn("size-4 flex-shrink-0", className)} />;
     case "projects":
       return <ProjectIcon className={cn("size-4 flex-shrink-0", className)} />;
+    case "tasks":
+      return <ListChecks className={cn("size-4 flex-shrink-0", className)} />;
+    case "agents":
+      return <Bot className={cn("size-4 flex-shrink-0", className)} />;
+    case "prompts":
+      return <FileText className={cn("size-4 flex-shrink-0", className)} />;
+    case "workflows":
+      return <Workflow className={cn("size-4 flex-shrink-0", className)} />;
+    case "workers":
+      return <HardDrive className={cn("size-4 flex-shrink-0", className)} />;
+    case "work-directories":
+      return <FolderGit2 className={cn("size-4 flex-shrink-0", className)} />;
     case "views":
       return <ViewsIcon className={cn("size-4 flex-shrink-0", className)} />;
     case "active_cycles":
