@@ -38,6 +38,26 @@ export type AgentUserAgent = {
   defaults: Record<string, unknown>;
   is_default: boolean;
   is_active: boolean;
+  prompt_count?: number;
+  prompt_stack?: AgentPromptStackItem[];
+};
+
+export type AgentPromptStackItem = {
+  id: string;
+  prompt: string;
+  prompt_key: string;
+  prompt_name: string;
+  prompt_scope: AgentPromptScope;
+  prompt_kind: AgentPromptKind;
+  prompt_status: string;
+  version_policy: AgentPromptVersionPolicy;
+  pinned_version: string | null;
+  resolved_version: number;
+  role: string | null;
+  role_key: string;
+  slot: string;
+  sort_order: number;
+  is_required: boolean;
 };
 
 export type AgentPrompt = {
@@ -221,8 +241,16 @@ export class AgentPlatformService extends APIService {
     return this.create(workspaceSlug, "agent-agents", payload);
   }
 
+  async updateAgent(workspaceSlug: string, agentId: string, payload: Partial<AgentUserAgent>): Promise<AgentUserAgent> {
+    return this.update(workspaceSlug, "agent-agents", agentId, payload);
+  }
+
   async createPrompt(workspaceSlug: string, payload: Partial<AgentPrompt>): Promise<AgentPrompt> {
     return this.create(workspaceSlug, "agent-prompts", payload);
+  }
+
+  async updatePrompt(workspaceSlug: string, promptId: string, payload: Partial<AgentPrompt>): Promise<AgentPrompt> {
+    return this.update(workspaceSlug, "agent-prompts", promptId, payload);
   }
 
   async createPromptVersion(workspaceSlug: string, payload: Partial<AgentPromptVersion>): Promise<AgentPromptVersion> {
@@ -284,6 +312,18 @@ export class AgentPlatformService extends APIService {
 
   private async create<T>(workspaceSlug: string, resource: string, payload: object): Promise<T> {
     return this.post(`/api/v1/workspaces/${workspaceSlug}/${resource}/`, payload, { validateStatus: null })
+      .then((response) => {
+        if (response?.status >= 400) throw response?.data;
+        return response?.data as T;
+      })
+      .catch((error) => {
+        const agentError = error as AgentPlatformError;
+        throw agentError.response?.data ?? error;
+      });
+  }
+
+  private async update<T>(workspaceSlug: string, resource: string, id: string, payload: object): Promise<T> {
+    return this.patch(`/api/v1/workspaces/${workspaceSlug}/${resource}/${id}/`, payload, { validateStatus: null })
       .then((response) => {
         if (response?.status >= 400) throw response?.data;
         return response?.data as T;

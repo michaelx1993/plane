@@ -4,22 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { FileText } from "lucide-react";
+import { AgentPromptLibraryPage } from "@/components/agent-control-center/agent-prompt-library-page";
 
-import { AgentControlCenterPage } from "@/components/agent-control-center/center-page";
-
-export default function PromptsPage() {
-  return (
-    <AgentControlCenterPage
-      title="Prompts"
-      subtitle="Prompt library, versions, bindings, scopes, kinds, and preview."
-      Icon={FileText}
-      lists={[
-        {
-          title: "Prompt Library",
-          items: ["Prompt Metadata", "Latest Version", "Version History", "Bindings", "Preview"],
-        },
-      ]}
-    />
-  );
+export default function PromptsPage({ params }: { params: { workspaceSlug: string } }) {
+  return <AgentPromptLibraryPage initialView="prompts" workspaceSlug={params.workspaceSlug} />;
 }
