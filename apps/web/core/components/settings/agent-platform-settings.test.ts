@@ -27,6 +27,15 @@ const workspaceMembersPageSource = read(
 const projectPageSource = read(
   "apps/web/app/(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/agents/page.tsx"
 );
+const agentCenterAgentsPageSource = read(
+  "apps/web/app/(all)/[workspaceSlug]/(projects)/agent-control-center/agents/page.tsx"
+);
+const agentCenterPromptsPageSource = read(
+  "apps/web/app/(all)/[workspaceSlug]/(projects)/agent-control-center/prompts/page.tsx"
+);
+const agentCenterLibraryPageSource = read(
+  "apps/web/core/components/agent-control-center/agent-prompt-library-page.tsx"
+);
 const issueWidgetActionSource = read("apps/web/core/components/issues/issue-detail-widgets/action-buttons.tsx");
 const agentRunActionSource = read("apps/web/core/components/issues/issue-detail-widgets/agent-run-action-button.tsx");
 const serviceSource = read("apps/web/core/services/agent-platform.service.ts");
@@ -114,7 +123,9 @@ assert.ok(
   serviceSource.includes("getWorkspaceSnapshot") &&
     serviceSource.includes("agent-agents") &&
     serviceSource.includes("agent-prompt-bindings") &&
-    serviceSource.includes("agent-user-secret-keys"),
+    serviceSource.includes("agent-user-secret-keys") &&
+    serviceSource.includes("updateAgent") &&
+    serviceSource.includes("updatePrompt"),
   "agent platform service should cover workspace agent resources"
 );
 assert.ok(
@@ -140,6 +151,25 @@ assert.ok(
     workspacePageSource.includes("scope") &&
     workspacePageSource.includes("kind"),
   "workspace Agent Library page should create agents, prompt versions, bindings, and secret keys"
+);
+assert.ok(
+  agentCenterAgentsPageSource.includes("AgentPromptLibraryPage") &&
+    agentCenterAgentsPageSource.includes('initialView="agents"') &&
+    agentCenterPromptsPageSource.includes("AgentPromptLibraryPage") &&
+    agentCenterPromptsPageSource.includes('initialView="prompts"'),
+  "Agent Center Agents and Prompts routes should render the real library UI"
+);
+assert.ok(
+  agentCenterLibraryPageSource.includes("getWorkspaceSnapshot") &&
+    agentCenterLibraryPageSource.includes("createAgent") &&
+    agentCenterLibraryPageSource.includes("updateAgent") &&
+    agentCenterLibraryPageSource.includes("createPrompt") &&
+    agentCenterLibraryPageSource.includes("updatePrompt") &&
+    agentCenterLibraryPageSource.includes("createPromptVersion") &&
+    agentCenterLibraryPageSource.includes("createPromptBinding") &&
+    agentCenterLibraryPageSource.includes("archive-prompt") &&
+    agentCenterLibraryPageSource.includes("prompt_stack"),
+  "Agent Center library UI should expose real Agent, Prompt, Prompt Version, and Prompt Stack operations"
 );
 assert.ok(
   projectPageSource.includes("createWorkerCard") &&
@@ -182,6 +212,18 @@ for (const locale of ["en", "zh-CN", "zh-TW"]) {
     assert.ok(navigationMessages.sidebar[key], `${locale} sidebar.${key} is required`);
   }
   assert.ok(workspaceMessages.workspace_settings.settings.agents.title, `${locale} workspace agent title is required`);
+  assert.ok(
+    workspaceMessages.workspace_settings.settings.agents.agent_page_description,
+    `${locale} Agent Center agent page description is required`
+  );
+  assert.ok(
+    workspaceMessages.workspace_settings.settings.agents.prompt_page_description,
+    `${locale} Agent Center prompt page description is required`
+  );
+  assert.ok(
+    workspaceMessages.workspace_settings.settings.agents.archive_prompt,
+    `${locale} Agent Center prompt archive label is required`
+  );
   assert.ok(projectMessages.project_settings.agents.label, `${locale} project agent label is required`);
   assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
   assert.ok(workItemMessages.issue.agent_run.start, `${locale} work item Agent run start is required`);
