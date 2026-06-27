@@ -242,6 +242,7 @@ class AgentPromptBinding(BaseModel):
         if self.version_policy == "pinned" and self.pinned_version is None:
             self.pinned_version = self.prompt_version
         if self.version_policy == "latest":
+            self.prompt_version = None
             self.pinned_version = None
         super().save(*args, **kwargs)
 

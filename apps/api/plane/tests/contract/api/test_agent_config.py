@@ -10,6 +10,7 @@ from plane.db.models import (
     AgentConfigOutbox,
     AgentPrompt,
     AgentPromptBinding,
+    AgentPromptVersion,
     AgentRepository,
     AgentUserAgent,
     AgentWorkerCard,
@@ -117,6 +118,67 @@ class TestAgentConfigAPI:
         assert outbox.payload["content_hash"]
 
     @pytest.mark.django_db
+    def test_create_prompt_version_auto_increments_when_version_is_omitted(self, api_key_client, workspace):
+        prompt_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompts/",
+            {
+                "key": "builder-base",
+                "name": "Builder Base",
+                "scope": "agent",
+                "kind": "instruction",
+            },
+            format="json",
+        )
+        assert prompt_response.status_code == status.HTTP_201_CREATED
+
+        first_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompt-versions/",
+            {
+                "prompt": prompt_response.data["id"],
+                "body": "First version",
+            },
+            format="json",
+        )
+        second_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompt-versions/",
+            {
+                "prompt": prompt_response.data["id"],
+                "body": "Second version",
+            },
+            format="json",
+        )
+
+        assert first_response.status_code == status.HTTP_201_CREATED, first_response.data
+        assert second_response.status_code == status.HTTP_201_CREATED, second_response.data
+        assert first_response.data["version"] == 1
+        assert second_response.data["version"] == 2
+        assert AgentPrompt.objects.get(id=prompt_response.data["id"]).latest_version == 2
+
+    @pytest.mark.django_db
+    def test_create_prompt_version_rejects_duplicate_version(self, api_key_client, workspace):
+        prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="builder-base",
+            name="Builder Base",
+            scope="agent",
+            kind="instruction",
+        )
+        AgentPromptVersion.objects.create(workspace=workspace, prompt=prompt, version=1, body="First version")
+
+        response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompt-versions/",
+            {
+                "prompt": str(prompt.id),
+                "version": 1,
+                "body": "Duplicate version",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "version" in response.data
+
+    @pytest.mark.django_db
     def test_create_prompt_binding_records_latest_policy(self, api_key_client, workspace, create_user):
         agent_response = api_key_client.post(
             f"/api/v1/workspaces/{workspace.slug}/agent-agents/",
@@ -165,6 +227,179 @@ class TestAgentConfigAPI:
         assert outbox.payload["target_id"] == str(binding.agent_id)
         assert outbox.payload["version_policy"] == "latest"
         assert outbox.payload["slot"] == "role"
+
+    @pytest.mark.django_db
+    def test_agent_detail_returns_ordered_prompt_stack(self, api_key_client, workspace, create_user):
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-builder",
+            name="Codex Builder",
+            runtime="codex",
+        )
+        base_prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="agent-base",
+            name="Agent Base",
+            scope="agent",
+            kind="instruction",
+        )
+        project_prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="project-context",
+            name="Project Context",
+            scope="project",
+            kind="context",
+        )
+        pinned_version = AgentPromptVersion.objects.create(
+            workspace=workspace,
+            prompt=project_prompt,
+            version=1,
+            body="Use the project constraints.",
+        )
+        AgentPromptVersion.objects.create(
+            workspace=workspace,
+            prompt=base_prompt,
+            version=3,
+            body="Use the latest base prompt.",
+        )
+        AgentPromptBinding.objects.create(
+            agent=agent,
+            prompt=project_prompt,
+            prompt_version=pinned_version,
+            version_policy="pinned",
+            slot="project",
+            sort_order=20,
+        )
+        AgentPromptBinding.objects.create(
+            agent=agent,
+            prompt=base_prompt,
+            version_policy="latest",
+            slot="agent",
+            sort_order=10,
+        )
+
+        response = api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/agent-agents/{agent.id}/")
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        assert response.data["prompt_count"] == 2
+        assert [item["prompt_key"] for item in response.data["prompt_stack"]] == [
+            "agent-base",
+            "project-context",
+        ]
+        assert response.data["prompt_stack"][0]["resolved_version"] == 3
+        assert response.data["prompt_stack"][1]["version_policy"] == "pinned"
+        assert response.data["prompt_stack"][1]["resolved_version"] == 1
+
+    @pytest.mark.django_db
+    def test_prompt_response_includes_binding_and_version_counts(self, api_key_client, workspace, create_user):
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-default",
+            name="Codex Default",
+        )
+        prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="review-rules",
+            name="Review Rules",
+            scope="role",
+            kind="constraint",
+        )
+        AgentPromptVersion.objects.create(workspace=workspace, prompt=prompt, version=1, body="v1")
+        AgentPromptVersion.objects.create(workspace=workspace, prompt=prompt, version=2, body="v2")
+        AgentPromptBinding.objects.create(agent=agent, prompt=prompt, version_policy="latest", slot="role")
+
+        response = api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/agent-prompts/{prompt.id}/")
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        assert response.data["bound_agents_count"] == 1
+        assert response.data["version_count"] == 2
+
+    @pytest.mark.django_db
+    def test_prompt_binding_rejects_pinned_version_from_another_prompt(self, api_key_client, workspace, create_user):
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-default",
+            name="Codex Default",
+        )
+        selected_prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="selected",
+            name="Selected Prompt",
+            scope="agent",
+            kind="instruction",
+        )
+        other_prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="other",
+            name="Other Prompt",
+            scope="agent",
+            kind="instruction",
+        )
+        other_version = AgentPromptVersion.objects.create(
+            workspace=workspace,
+            prompt=other_prompt,
+            version=1,
+            body="Wrong prompt body",
+        )
+
+        response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompt-bindings/",
+            {
+                "agent": str(agent.id),
+                "prompt": str(selected_prompt.id),
+                "pinned_version": str(other_version.id),
+                "version_policy": "pinned",
+                "slot": "agent",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "pinned_version" in response.data
+
+    @pytest.mark.django_db
+    def test_prompt_binding_latest_policy_clears_pinned_version(self, api_key_client, workspace, create_user):
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-default",
+            name="Codex Default",
+        )
+        prompt = AgentPrompt.objects.create(
+            workspace=workspace,
+            key="base",
+            name="Base Prompt",
+            scope="agent",
+            kind="instruction",
+        )
+        prompt_version = AgentPromptVersion.objects.create(
+            workspace=workspace,
+            prompt=prompt,
+            version=1,
+            body="Pinned body",
+        )
+        binding = AgentPromptBinding.objects.create(
+            agent=agent,
+            prompt=prompt,
+            prompt_version=prompt_version,
+            version_policy="pinned",
+            slot="agent",
+        )
+
+        response = api_key_client.patch(
+            f"/api/v1/workspaces/{workspace.slug}/agent-prompt-bindings/{binding.id}/",
+            {"version_policy": "latest"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        binding.refresh_from_db()
+        assert binding.version_policy == "latest"
+        assert binding.prompt_version is None
+        assert binding.pinned_version is None
 
     @pytest.mark.django_db
     def test_create_user_secret_key_writes_key_only_outbox(self, api_key_client, workspace, create_user):

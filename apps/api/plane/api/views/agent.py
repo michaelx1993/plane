@@ -169,11 +169,35 @@ class AgentUserAgentListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint
     serializer_class = AgentUserAgentSerializer
     entity_type = "agent_user_agent"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                "prompt_bindings__prompt",
+                "prompt_bindings__prompt_version",
+                "prompt_bindings__pinned_version",
+                "prompt_bindings__role",
+            )
+        )
+
 
 class AgentUserAgentDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
     model = AgentUserAgent
     serializer_class = AgentUserAgentSerializer
     entity_type = "agent_user_agent"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .prefetch_related(
+                "prompt_bindings__prompt",
+                "prompt_bindings__prompt_version",
+                "prompt_bindings__pinned_version",
+                "prompt_bindings__role",
+            )
+        )
 
 
 class AgentPromptListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):

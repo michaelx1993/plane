@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from django.db.models import Max
 from rest_framework import serializers
 
 from plane.db.models import (
@@ -34,6 +35,9 @@ class AgentWorkspaceScopedSerializer(BaseSerializer):
 
 
 class AgentUserAgentSerializer(AgentWorkspaceScopedSerializer):
+    prompt_count = serializers.SerializerMethodField(read_only=True)
+    prompt_stack = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = AgentUserAgent
         fields = [
@@ -49,13 +53,30 @@ class AgentUserAgentSerializer(AgentWorkspaceScopedSerializer):
             "defaults",
             "is_default",
             "is_active",
+            "prompt_count",
+            "prompt_stack",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "workspace", "created_at", "updated_at"]
 
+    def get_prompt_count(self, obj):
+        return obj.prompt_bindings.filter(is_active=True).count()
+
+    def get_prompt_stack(self, obj):
+        bindings = obj.prompt_bindings.filter(is_active=True).select_related(
+            "prompt",
+            "prompt_version",
+            "pinned_version",
+            "role",
+        )
+        return AgentPromptBindingStackSerializer(bindings, many=True).data
+
 
 class AgentPromptSerializer(AgentWorkspaceScopedSerializer):
+    bound_agents_count = serializers.SerializerMethodField(read_only=True)
+    version_count = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = AgentPrompt
         fields = [
@@ -72,6 +93,8 @@ class AgentPromptSerializer(AgentWorkspaceScopedSerializer):
             "latest_version",
             "metadata",
             "is_active",
+            "bound_agents_count",
+            "version_count",
             "created_at",
             "updated_at",
         ]
@@ -85,8 +108,16 @@ class AgentPromptSerializer(AgentWorkspaceScopedSerializer):
             attrs["prompt_type"] = scope_to_prompt_type(attrs["scope"])
         return attrs
 
+    def get_bound_agents_count(self, obj):
+        return obj.agent_bindings.filter(is_active=True).values("agent_id").distinct().count()
+
+    def get_version_count(self, obj):
+        return obj.versions.filter(is_active=True).count()
+
 
 class AgentPromptVersionSerializer(AgentWorkspaceScopedSerializer):
+    version = serializers.IntegerField(required=False, min_value=1)
+
     class Meta:
         model = AgentPromptVersion
         fields = [
@@ -104,10 +135,32 @@ class AgentPromptVersionSerializer(AgentWorkspaceScopedSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+        validators = []
 
     def validate(self, attrs):
         self._assert_same_workspace(attrs, "prompt")
+        prompt = attrs.get("prompt") or getattr(self.instance, "prompt", None)
+        version = attrs.get("version") or getattr(self.instance, "version", None)
+        if prompt is not None and version is not None:
+            queryset = AgentPromptVersion.objects.filter(prompt=prompt, version=version)
+            if self.instance is not None:
+                queryset = queryset.exclude(id=self.instance.id)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {"version": "A prompt version with this prompt and version already exists."}
+                )
         return attrs
+
+    def create(self, validated_data):
+        if not validated_data.get("version"):
+            latest_version = (
+                AgentPromptVersion.objects.filter(prompt=validated_data["prompt"]).aggregate(Max("version"))[
+                    "version__max"
+                ]
+                or 0
+            )
+            validated_data["version"] = latest_version + 1
+        return super().create(validated_data)
 
 
 class AgentRoleSerializer(AgentWorkspaceScopedSerializer):
@@ -168,12 +221,59 @@ class AgentPromptBindingSerializer(AgentWorkspaceScopedSerializer):
             or attrs.get("prompt_version")
             or getattr(self.instance, "pinned_version", None)
         )
+        if version_policy == "latest":
+            attrs["prompt_version"] = None
+            attrs["pinned_version"] = None
+            return attrs
         if version_policy == "pinned" and pinned_version is None:
             raise serializers.ValidationError({"pinned_version": "Pinned bindings require a prompt version."})
         if pinned_version is not None:
+            prompt = attrs.get("prompt") or getattr(self.instance, "prompt", None)
+            if prompt is not None and pinned_version.prompt_id != prompt.id:
+                raise serializers.ValidationError(
+                    {"pinned_version": "Pinned prompt version must belong to the selected prompt."}
+                )
             attrs["prompt_version"] = pinned_version
             attrs["pinned_version"] = pinned_version
         return attrs
+
+
+class AgentPromptBindingStackSerializer(serializers.ModelSerializer):
+    prompt_key = serializers.CharField(source="prompt.key", read_only=True)
+    prompt_name = serializers.CharField(source="prompt.name", read_only=True)
+    prompt_scope = serializers.CharField(source="prompt.scope", read_only=True)
+    prompt_kind = serializers.CharField(source="prompt.kind", read_only=True)
+    prompt_status = serializers.CharField(source="prompt.status", read_only=True)
+    resolved_version = serializers.SerializerMethodField(read_only=True)
+    role_key = serializers.CharField(source="role.key", read_only=True)
+
+    class Meta:
+        model = AgentPromptBinding
+        fields = [
+            "id",
+            "prompt",
+            "prompt_key",
+            "prompt_name",
+            "prompt_scope",
+            "prompt_kind",
+            "prompt_status",
+            "target_type",
+            "target_id",
+            "version_policy",
+            "pinned_version",
+            "resolved_version",
+            "role",
+            "role_key",
+            "slot",
+            "sort_order",
+            "is_required",
+        ]
+        read_only_fields = fields
+
+    def get_resolved_version(self, obj):
+        if obj.version_policy == "pinned" and obj.pinned_version_id:
+            return obj.pinned_version.version
+        return obj.prompt.latest_version
 
 
 class AgentWorkerCardSerializer(AgentWorkspaceScopedSerializer):
