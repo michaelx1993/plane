@@ -111,6 +111,8 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 
 ### PR C：Workflow Instance 与 Human Gate API
 
+状态：开发中。
+
 目标：
 
 - 新 task 自动挂 Phase 1 默认 Agent software delivery workflow instance。
@@ -141,6 +143,13 @@ To-do / Intake / PRD
 - Human gate actions：approve、return、set auto、block。
 - Agent assignment override：node-level -> task default -> project default -> system default。
 - Active node 到 Plane native state 的派生同步。
+
+API contract：
+
+- Task Workflow Instances endpoint：按 task/project/status 查询 workflow instance，新 task 自动挂默认 instance。
+- Task Workflow Nodes endpoint：按 task/workflow/status 查询节点，支持 node-level `assigned_agent` 与 `mode` 更新。
+- Task Workflow Transitions endpoint：返回 approve、return、set auto、block、agent failed 等流转审计记录。
+- Task Workflow Actions endpoint：执行 Human Gate / Agent failure 动作，写 transition、progress entry 和 outbox。
 
 验收：
 

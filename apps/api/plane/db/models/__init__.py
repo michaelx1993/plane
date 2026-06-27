@@ -15,6 +15,9 @@ from .agent import (
     AgentTaskContextDocument,
     AgentTaskContextDocumentVersion,
     AgentTaskProgressEntry,
+    AgentTaskWorkflowInstance,
+    AgentTaskWorkflowNode,
+    AgentTaskWorkflowTransition,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
@@ -22,6 +25,7 @@ from .agent import (
     AgentWorkDirectoryRepository,
     AgentWorkerCard,
     AgentWorkerMount,
+    ensure_default_task_workflow_instance,
     prompt_type_to_scope,
     scope_to_prompt_type,
 )

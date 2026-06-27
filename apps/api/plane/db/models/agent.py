@@ -6,7 +6,7 @@ import hashlib
 import json
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from .base import BaseModel
@@ -72,6 +72,168 @@ TASK_PROGRESS_ENTRY_TYPE_CHOICES = (
     ("handoff", "Handoff"),
     ("feedback", "Feedback"),
 )
+
+TASK_WORKFLOW_INSTANCE_STATUS_CHOICES = (
+    ("active", "Active"),
+    ("blocked", "Blocked"),
+    ("done", "Done"),
+    ("canceled", "Canceled"),
+)
+
+TASK_WORKFLOW_NODE_TYPE_CHOICES = (
+    ("intake", "Intake"),
+    ("agent", "Agent"),
+    ("agent_review", "Agent Review"),
+    ("human_review", "Human Review"),
+    ("merge", "Merge"),
+    ("human_gate", "Human Gate"),
+    ("release", "Release"),
+    ("deploy", "Deployment"),
+    ("exception", "Exception"),
+    ("terminal", "Terminal"),
+)
+
+TASK_WORKFLOW_NODE_MODE_CHOICES = (
+    ("manual", "Manual"),
+    ("auto", "Auto"),
+    ("conversational", "Conversational"),
+    ("terminal", "Terminal"),
+)
+
+TASK_WORKFLOW_NODE_STATUS_CHOICES = (
+    ("pending", "Pending"),
+    ("active", "Active"),
+    ("completed", "Completed"),
+    ("failed", "Failed"),
+    ("blocked", "Blocked"),
+    ("skipped", "Skipped"),
+)
+
+TASK_WORKFLOW_TRANSITION_ACTION_CHOICES = (
+    ("created", "Created"),
+    ("approve", "Approve"),
+    ("return", "Return"),
+    ("set_auto", "Set Auto"),
+    ("set_manual", "Set Manual"),
+    ("block", "Block"),
+    ("agent_failed", "Agent Failed"),
+)
+
+DEFAULT_TASK_WORKFLOW_TEMPLATE_KEY = "agent-software-delivery"
+DEFAULT_TASK_WORKFLOW_TEMPLATE_VERSION = 1
+
+DEFAULT_TASK_WORKFLOW_NODES = (
+    {
+        "key": "intake",
+        "name": "To-do / Intake / PRD",
+        "node_type": "intake",
+        "owner_type": "human_agent",
+        "mode": "manual",
+        "sort_order": 1000,
+        "main_exits": ["development", "blocked", "done"],
+    },
+    {
+        "key": "development",
+        "name": "Development",
+        "node_type": "agent",
+        "owner_type": "agent",
+        "mode": "auto",
+        "sort_order": 2000,
+        "main_exits": ["agent_review", "blocked"],
+    },
+    {
+        "key": "agent_review",
+        "name": "Code Review / Agent Review",
+        "node_type": "agent_review",
+        "owner_type": "agent",
+        "mode": "auto",
+        "sort_order": 3000,
+        "main_exits": ["human_review", "development", "blocked"],
+    },
+    {
+        "key": "human_review",
+        "name": "Human Review",
+        "node_type": "human_review",
+        "owner_type": "human",
+        "mode": "manual",
+        "sort_order": 4000,
+        "main_exits": ["merge", "development", "done", "blocked"],
+    },
+    {
+        "key": "merge",
+        "name": "In Merge",
+        "node_type": "merge",
+        "owner_type": "agent",
+        "mode": "auto",
+        "sort_order": 5000,
+        "main_exits": ["merged_gate", "development", "blocked"],
+    },
+    {
+        "key": "merged_gate",
+        "name": "Merged Gate",
+        "node_type": "human_gate",
+        "owner_type": "human",
+        "mode": "manual",
+        "sort_order": 6000,
+        "main_exits": ["release", "development", "done", "blocked"],
+    },
+    {
+        "key": "release",
+        "name": "Release Version",
+        "node_type": "release",
+        "owner_type": "agent",
+        "mode": "auto",
+        "sort_order": 7000,
+        "main_exits": ["released_gate", "development", "blocked"],
+    },
+    {
+        "key": "released_gate",
+        "name": "Released Gate",
+        "node_type": "human_gate",
+        "owner_type": "human",
+        "mode": "manual",
+        "sort_order": 8000,
+        "main_exits": ["deployment", "development", "done", "blocked"],
+    },
+    {
+        "key": "deployment",
+        "name": "Deployment",
+        "node_type": "deploy",
+        "owner_type": "agent",
+        "mode": "auto",
+        "sort_order": 9000,
+        "main_exits": ["deployed_gate", "development", "blocked"],
+    },
+    {
+        "key": "deployed_gate",
+        "name": "Deployed Gate",
+        "node_type": "human_gate",
+        "owner_type": "human",
+        "mode": "manual",
+        "sort_order": 10000,
+        "main_exits": ["done", "development", "blocked"],
+    },
+    {
+        "key": "done",
+        "name": "Done",
+        "node_type": "terminal",
+        "owner_type": "system",
+        "mode": "terminal",
+        "sort_order": 11000,
+        "main_exits": [],
+    },
+    {
+        "key": "blocked",
+        "name": "Blocked",
+        "node_type": "exception",
+        "owner_type": "human",
+        "mode": "manual",
+        "sort_order": 90000,
+        "main_exits": ["intake", "development", "human_review", "merged_gate", "released_gate", "deployed_gate"],
+    },
+)
+
+DEFAULT_TASK_WORKFLOW_NODE_BY_KEY = {node["key"]: node for node in DEFAULT_TASK_WORKFLOW_NODES}
 
 
 class AgentUserAgent(BaseModel):
@@ -702,6 +864,176 @@ class AgentTaskProgressEntry(BaseModel):
         return f"{self.issue_id}:{self.entry_type}:{self.occurred_at.isoformat()}"
 
 
+class AgentTaskWorkflowInstance(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_workflow_instances",
+    )
+    issue = models.OneToOneField(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_workflow_instance",
+    )
+    template_key = models.SlugField(max_length=120, default=DEFAULT_TASK_WORKFLOW_TEMPLATE_KEY)
+    template_version = models.PositiveIntegerField(default=DEFAULT_TASK_WORKFLOW_TEMPLATE_VERSION)
+    name = models.CharField(max_length=255, default="Agent software delivery workflow")
+    status = models.CharField(
+        max_length=40,
+        choices=TASK_WORKFLOW_INSTANCE_STATUS_CHOICES,
+        default="active",
+    )
+    active_node = models.ForeignKey(
+        "db.AgentTaskWorkflowNode",
+        on_delete=models.SET_NULL,
+        related_name="active_workflow_instances",
+        null=True,
+        blank=True,
+    )
+    default_agent = models.ForeignKey(
+        "db.AgentUserAgent",
+        on_delete=models.SET_NULL,
+        related_name="default_task_workflows",
+        null=True,
+        blank=True,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_task_workflow_instances"
+        ordering = ("issue__sequence_id",)
+        indexes = [
+            models.Index(fields=["workspace", "status"]),
+            models.Index(fields=["workspace", "active_node"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.issue.workspace
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.template_key}@{self.template_version}"
+
+
+class AgentTaskWorkflowNode(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_workflow_nodes",
+    )
+    workflow_instance = models.ForeignKey(
+        "db.AgentTaskWorkflowInstance",
+        on_delete=models.CASCADE,
+        related_name="nodes",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_workflow_nodes",
+    )
+    key = models.SlugField(max_length=120)
+    name = models.CharField(max_length=255)
+    node_type = models.CharField(max_length=40, choices=TASK_WORKFLOW_NODE_TYPE_CHOICES)
+    owner_type = models.CharField(max_length=40, default="agent")
+    mode = models.CharField(max_length=40, choices=TASK_WORKFLOW_NODE_MODE_CHOICES, default="auto")
+    status = models.CharField(max_length=40, choices=TASK_WORKFLOW_NODE_STATUS_CHOICES, default="pending")
+    sort_order = models.PositiveIntegerField(default=0)
+    main_exits = models.JSONField(default=list, blank=True)
+    assigned_agent = models.ForeignKey(
+        "db.AgentUserAgent",
+        on_delete=models.SET_NULL,
+        related_name="assigned_workflow_nodes",
+        null=True,
+        blank=True,
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_task_workflow_nodes"
+        ordering = ("workflow_instance", "sort_order")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workflow_instance", "key"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_task_workflow_node_unique_key_instance",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["workspace", "issue", "status"]),
+            models.Index(fields=["workspace", "key"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.workflow_instance.workspace
+        self.issue = self.workflow_instance.issue
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.key}:{self.status}"
+
+
+class AgentTaskWorkflowTransition(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_workflow_transitions",
+    )
+    workflow_instance = models.ForeignKey(
+        "db.AgentTaskWorkflowInstance",
+        on_delete=models.CASCADE,
+        related_name="transitions",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_workflow_transitions",
+    )
+    from_node = models.ForeignKey(
+        "db.AgentTaskWorkflowNode",
+        on_delete=models.SET_NULL,
+        related_name="outgoing_transitions",
+        null=True,
+        blank=True,
+    )
+    to_node = models.ForeignKey(
+        "db.AgentTaskWorkflowNode",
+        on_delete=models.SET_NULL,
+        related_name="incoming_transitions",
+        null=True,
+        blank=True,
+    )
+    action = models.CharField(max_length=40, choices=TASK_WORKFLOW_TRANSITION_ACTION_CHOICES)
+    reason = models.TextField(blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="agent_task_workflow_transitions",
+        null=True,
+        blank=True,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "agent_task_workflow_transitions"
+        ordering = ("created_at",)
+        indexes = [
+            models.Index(fields=["workspace", "issue", "created_at"]),
+            models.Index(fields=["workspace", "action"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.workflow_instance.workspace
+        self.issue = self.workflow_instance.issue
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.action}:{self.created_at.isoformat()}"
+
+
 class AgentConfigOutbox(models.Model):
     id = models.BigAutoField(primary_key=True)
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_config_outbox")
@@ -752,6 +1084,157 @@ class AgentUserSecretKey(BaseModel):
 
     def __str__(self):
         return self.key
+
+
+def ensure_default_task_workflow_instance(issue, actor=None):
+    if issue.is_draft or issue.archived_at is not None:
+        return None
+
+    with transaction.atomic():
+        existing = (
+            AgentTaskWorkflowInstance.objects.select_related("active_node")
+            .filter(issue=issue, workspace=issue.workspace, is_active=True)
+            .first()
+        )
+        if existing:
+            return existing
+
+        workflow = AgentTaskWorkflowInstance.objects.create(workspace=issue.workspace, issue=issue)
+        nodes = {}
+        for node_spec in DEFAULT_TASK_WORKFLOW_NODES:
+            node = AgentTaskWorkflowNode.objects.create(
+                workspace=issue.workspace,
+                workflow_instance=workflow,
+                issue=issue,
+                key=node_spec["key"],
+                name=node_spec["name"],
+                node_type=node_spec["node_type"],
+                owner_type=node_spec["owner_type"],
+                mode=node_spec["mode"],
+                status="active" if node_spec["key"] == "intake" else "pending",
+                sort_order=node_spec["sort_order"],
+                main_exits=node_spec["main_exits"],
+                started_at=timezone.now() if node_spec["key"] == "intake" else None,
+            )
+            nodes[node.key] = node
+
+        workflow.active_node = nodes["intake"]
+        workflow.save(update_fields=["active_node", "updated_at"])
+        _record_task_workflow_transition(
+            workflow,
+            None,
+            nodes["intake"],
+            "created",
+            actor=actor,
+            reason="Created default Agent software delivery workflow.",
+        )
+        _sync_issue_state_to_workflow_node(issue, nodes["intake"])
+        _record_task_workflow_outbox(workflow.workspace, "agent_task_workflow_instance", "create", workflow)
+        for node in nodes.values():
+            _record_task_workflow_outbox(workflow.workspace, "agent_task_workflow_node", "create", node)
+        return workflow
+
+
+def _record_task_workflow_transition(workflow, from_node, to_node, action, actor=None, reason="", metadata=None):
+    return AgentTaskWorkflowTransition.objects.create(
+        workspace=workflow.workspace,
+        workflow_instance=workflow,
+        issue=workflow.issue,
+        from_node=from_node,
+        to_node=to_node,
+        action=action,
+        reason=reason,
+        actor=actor if getattr(actor, "is_authenticated", False) else None,
+        metadata=metadata or {},
+    )
+
+
+def _sync_issue_state_to_workflow_node(issue, node):
+    if node is None:
+        return
+
+    from plane.db.models import State
+
+    group = {
+        "intake": "unstarted",
+        "agent": "started",
+        "agent_review": "started",
+        "human_review": "started",
+        "merge": "started",
+        "human_gate": "started",
+        "release": "started",
+        "deploy": "started",
+        "exception": "started",
+        "terminal": "completed",
+    }.get(node.node_type, "started")
+    color = {
+        "unstarted": "#60646C",
+        "started": "#F59E0B",
+        "completed": "#46A758",
+    }.get(group, "#60646C")
+    state = State.all_state_objects.filter(project=issue.project, name=node.name, deleted_at__isnull=True).first()
+    if state is None:
+        state = State.objects.create(
+            workspace=issue.workspace,
+            project=issue.project,
+            name=node.name,
+            color=color,
+            group=group,
+        )
+    if issue.state_id != state.id:
+        issue.state = state
+        issue.save(update_fields=["state"])
+
+
+def _record_task_workflow_outbox(workspace, entity_type, operation, instance):
+    AgentConfigOutbox.objects.create(
+        workspace=workspace,
+        entity_type=entity_type,
+        entity_id=instance.id,
+        operation=operation,
+        payload=_task_workflow_outbox_payload(instance),
+    )
+
+
+def _task_workflow_outbox_payload(instance):
+    if isinstance(instance, AgentTaskWorkflowInstance):
+        return {
+            "id": str(instance.id),
+            "workspace": str(instance.workspace_id),
+            "issue": str(instance.issue_id),
+            "template_key": instance.template_key,
+            "template_version": instance.template_version,
+            "status": instance.status,
+            "active_node": str(instance.active_node_id) if instance.active_node_id else None,
+            "default_agent": str(instance.default_agent_id) if instance.default_agent_id else None,
+        }
+    if isinstance(instance, AgentTaskWorkflowNode):
+        return {
+            "id": str(instance.id),
+            "workspace": str(instance.workspace_id),
+            "workflow_instance": str(instance.workflow_instance_id),
+            "issue": str(instance.issue_id),
+            "key": instance.key,
+            "name": instance.name,
+            "node_type": instance.node_type,
+            "owner_type": instance.owner_type,
+            "mode": instance.mode,
+            "status": instance.status,
+            "main_exits": instance.main_exits,
+            "assigned_agent": str(instance.assigned_agent_id) if instance.assigned_agent_id else None,
+        }
+    if isinstance(instance, AgentTaskWorkflowTransition):
+        return {
+            "id": str(instance.id),
+            "workspace": str(instance.workspace_id),
+            "workflow_instance": str(instance.workflow_instance_id),
+            "issue": str(instance.issue_id),
+            "from_node": str(instance.from_node_id) if instance.from_node_id else None,
+            "to_node": str(instance.to_node_id) if instance.to_node_id else None,
+            "action": instance.action,
+            "reason": instance.reason,
+        }
+    return {"id": str(instance.id)}
 
 
 def prompt_type_to_scope(prompt_type):

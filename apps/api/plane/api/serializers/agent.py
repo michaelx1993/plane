@@ -17,6 +17,9 @@ from plane.db.models import (
     AgentTaskContextDocument,
     AgentTaskContextDocumentVersion,
     AgentTaskProgressEntry,
+    AgentTaskWorkflowInstance,
+    AgentTaskWorkflowNode,
+    AgentTaskWorkflowTransition,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
@@ -681,6 +684,158 @@ class AgentTaskProgressEntrySerializer(AgentWorkspaceScopedSerializer):
         if not (attrs.get("body") or "").strip():
             raise serializers.ValidationError({"body": "Progress entry body is required."})
         return attrs
+
+
+class AgentTaskWorkflowNodeSerializer(AgentWorkspaceScopedSerializer):
+    issue_sequence_id = serializers.IntegerField(source="issue.sequence_id", read_only=True)
+    assigned_agent_key = serializers.CharField(source="assigned_agent.key", read_only=True)
+    assigned_agent_name = serializers.CharField(source="assigned_agent.name", read_only=True)
+
+    class Meta:
+        model = AgentTaskWorkflowNode
+        fields = [
+            "id",
+            "workspace",
+            "workflow_instance",
+            "issue",
+            "issue_sequence_id",
+            "key",
+            "name",
+            "node_type",
+            "owner_type",
+            "mode",
+            "status",
+            "sort_order",
+            "main_exits",
+            "assigned_agent",
+            "assigned_agent_key",
+            "assigned_agent_name",
+            "started_at",
+            "completed_at",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "workspace",
+            "workflow_instance",
+            "issue",
+            "key",
+            "name",
+            "node_type",
+            "owner_type",
+            "status",
+            "sort_order",
+            "main_exits",
+            "started_at",
+            "completed_at",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        self._assert_same_workspace(attrs, "assigned_agent")
+        return attrs
+
+
+class AgentTaskWorkflowInstanceSerializer(AgentWorkspaceScopedSerializer):
+    issue_sequence_id = serializers.IntegerField(source="issue.sequence_id", read_only=True)
+    project = serializers.UUIDField(source="issue.project_id", read_only=True)
+    active_node_key = serializers.CharField(source="active_node.key", read_only=True)
+    active_node_name = serializers.CharField(source="active_node.name", read_only=True)
+    default_agent_key = serializers.CharField(source="default_agent.key", read_only=True)
+    nodes = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AgentTaskWorkflowInstance
+        fields = [
+            "id",
+            "workspace",
+            "issue",
+            "issue_sequence_id",
+            "project",
+            "template_key",
+            "template_version",
+            "name",
+            "status",
+            "active_node",
+            "active_node_key",
+            "active_node_name",
+            "default_agent",
+            "default_agent_key",
+            "nodes",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "workspace",
+            "template_key",
+            "template_version",
+            "name",
+            "status",
+            "active_node",
+            "active_node_key",
+            "active_node_name",
+            "nodes",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        workspace_id = self.context.get("workspace_id")
+        issue = attrs.get("issue") or getattr(self.instance, "issue", None)
+        if issue is not None and str(issue.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError({"issue": "Issue must belong to the current workspace."})
+        self._assert_same_workspace(attrs, "default_agent")
+        return attrs
+
+    def get_nodes(self, obj):
+        nodes = obj.nodes.filter(is_active=True).select_related("assigned_agent").order_by("sort_order")
+        return AgentTaskWorkflowNodeSerializer(nodes, many=True, context=self.context).data
+
+
+class AgentTaskWorkflowTransitionSerializer(AgentWorkspaceScopedSerializer):
+    from_node_key = serializers.CharField(source="from_node.key", read_only=True)
+    to_node_key = serializers.CharField(source="to_node.key", read_only=True)
+
+    class Meta:
+        model = AgentTaskWorkflowTransition
+        fields = [
+            "id",
+            "workspace",
+            "workflow_instance",
+            "issue",
+            "from_node",
+            "from_node_key",
+            "to_node",
+            "to_node_key",
+            "action",
+            "reason",
+            "actor",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class AgentTaskWorkflowActionSerializer(serializers.Serializer):
+    issue = serializers.UUIDField(required=False)
+    workflow_instance = serializers.UUIDField(required=False)
+    node = serializers.UUIDField(required=False)
+    node_key = serializers.CharField(required=False, allow_blank=True)
+    action = serializers.ChoiceField(
+        choices=["approve", "return", "set_auto", "set_manual", "block", "agent_failed"]
+    )
+    target_node_key = serializers.CharField(required=False, allow_blank=True)
+    assigned_agent = serializers.UUIDField(required=False)
+    reason = serializers.CharField(required=False, allow_blank=True)
+    metadata = serializers.JSONField(required=False)
 
 
 class AgentUserSecretKeySerializer(AgentWorkspaceScopedSerializer):
