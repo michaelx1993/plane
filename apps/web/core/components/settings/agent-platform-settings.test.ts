@@ -13,6 +13,11 @@ const repoRoot = path.resolve(appRoot, "../..");
 
 const routeSource = read("apps/web/app/routes/core.ts");
 const workspaceMenuSource = read("apps/web/core/components/workspace/sidebar/workspace-menu.tsx");
+const workspaceNavigationSource = read("packages/constants/src/workspace.ts");
+const appSidebarSource = read("apps/web/app/(all)/[workspaceSlug]/(projects)/sidebar.tsx");
+const sidebarItemSource = read("apps/web/core/components/workspace/sidebar/sidebar-item.tsx");
+const sidebarWrapperSource = read("apps/web/core/components/sidebar/sidebar-wrapper.tsx");
+const sidebarIconSource = read("apps/web/ce/components/workspace/sidebar/helper.tsx");
 const workspaceSettingsSource = read("packages/constants/src/settings/workspace.ts");
 const projectSettingsSource = read("packages/constants/src/settings/project.ts");
 const workspacePageSource = read("apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/agents/page.tsx");
@@ -63,6 +68,27 @@ assert.ok(
     !workspaceMenuSource.includes("sidebar.analytics"),
   "workspace sidebar should prioritize Agent Control Center entries instead of Plane views, cycles, and analytics"
 );
+for (const agentCenterKey of ["tasks", "agents", "prompts", "workflows", "workers", "work-directories"]) {
+  assert.ok(
+    workspaceNavigationSource.includes(`WORKSPACE_SIDEBAR_DYNAMIC_NAVIGATION_ITEMS["${agentCenterKey}"]`),
+    `${agentCenterKey} should be in the active workspace navigation constants`
+  );
+  assert.ok(sidebarItemSource.includes(`"${agentCenterKey}"`), `${agentCenterKey} should render without pin state`);
+}
+assert.ok(
+  appSidebarSource.includes('title="Agent Center"') &&
+    !appSidebarSource.includes("SidebarProjectsList") &&
+    !appSidebarSource.includes("SidebarTeamsList") &&
+    !appSidebarSource.includes("SidebarFavoritesMenu"),
+  "active projects app sidebar should be Agent Center first and not render legacy project sections"
+);
+assert.ok(
+  !sidebarWrapperSource.includes("WorkspaceEditionBadge"),
+  "sidebar wrapper should not expose billing or plan upgrade UI"
+);
+for (const iconName of ["ListChecks", "Bot", "FileText", "Workflow", "HardDrive", "FolderGit2"]) {
+  assert.ok(sidebarIconSource.includes(iconName), `${iconName} icon should be mapped for Agent Center sidebar`);
+}
 assert.ok(
   workspaceSettingsSource.includes('key: "agents"') &&
     workspaceSettingsSource.includes("href: `/settings/agents`") &&
