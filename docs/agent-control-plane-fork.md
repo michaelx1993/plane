@@ -160,7 +160,8 @@ Source tables added under the Plane `db` app:
 - `agent_user_secret_keys`: user-level password book key metadata. Values are
   not stored here; worker runtime resolves values from the selected provider.
 - `agent_project_workspaces`: project workspace metadata, path policy,
-  local/remote Project Meta Git policy, and status/progress/meta document paths.
+  local/remote Project Meta Git policy, and PRD/status/progress/meta document
+  paths.
 - `agent_repositories`: registered repositories used by project workspaces with
   owner/full name, credential key, clone URL, and worktree strategy metadata.
 - `agent_config_outbox`: monotonic workspace-scoped change feed consumed by
@@ -203,15 +204,17 @@ current project and that the selected Agent/Worker Card belong to the current
 workspace. ACP remains responsible for dispatch, worker leases, run snapshots,
 events, and writeback.
 
-### P1: Repo Field
+### P1: Work Directory Field
 
 Current MVP uses `repo:<slug>` labels because Plane custom properties are not reliable enough in the validated self-host path.
 
 Backlog:
 
-- Add a first-class repository field to work items.
+- Add a first-class work directory field to work items.
+- Keep repository selection as metadata inside the selected work directory, not
+  the primary task binding.
 - Preserve the `repo:<slug>` label fallback for migration.
-- Expose repository field through API and webhook payloads.
+- Expose work directory metadata through API and webhook payloads.
 - Add UI affordance on work item detail.
 
 ### P1: Agent Status Embed
@@ -231,12 +234,21 @@ settings navigation:
 - Workspace Settings -> Agent Library: create User Agents, Prompts with an
   initial Prompt Version, Roles, and Prompt Bindings.
 - Project Settings -> Agents: create Worker Cards, Project Workspace metadata,
-  and project Repositories required by Phase 1 coding tasks.
+  and project Repositories. The Agent Control Center PRD supersedes the
+  repository-first task binding with Work Directory-first task binding.
 
 The pages use the existing `/api/v1/workspaces/{slug}/agent-*` endpoints, so
 each create operation writes `agent_config_outbox` and remains consumable by
 Agent Control Plane projection sync. The UI does not start runs, manage worker
 leases, or access Agent Control Plane DB.
+
+### P1: Agent 托管与流程控制中心 PRD
+
+完整 PRD 已拆分到独立目录：
+
+- `docs/agent-control-center-prd/index.md`
+
+该索引串起产品定位、信息架构、Agent/Prompt Library、默认 workflow、Task Detail、Worker/Work Directory、数据集成和 Phase 1 实施分期。
 
 ### P1: API/Webhook Regression
 
