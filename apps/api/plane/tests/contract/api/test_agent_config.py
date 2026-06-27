@@ -11,9 +11,14 @@ from plane.db.models import (
     AgentPrompt,
     AgentPromptBinding,
     AgentPromptVersion,
+    AgentProjectDefault,
     AgentRepository,
+    AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
+    AgentWorkDirectory,
+    AgentWorkDirectoryRepository,
     AgentWorkerCard,
+    AgentWorkerMount,
     Issue,
     Project,
     ProjectMember,
@@ -422,6 +427,338 @@ class TestAgentConfigAPI:
         assert outbox.payload["key"] == "github-token"
         assert outbox.payload["provider_ref"] == "GITHUB_TOKEN"
         assert "value" not in outbox.payload
+
+    @pytest.mark.django_db
+    def test_register_multi_repo_work_directory_and_worker_mount(self, api_key_client, workspace, create_user):
+        worker_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-worker-cards/",
+            {
+                "key": "mac-studio",
+                "name": "Mac Studio Worker",
+                "worker_endpoint": "http://80.251.222.30:3112",
+                "capabilities": ["shell", "git", "docker"],
+            },
+            format="json",
+        )
+        assert worker_response.status_code == status.HTTP_201_CREATED, worker_response.data
+
+        work_directory_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directories/",
+            {
+                "key": "agent-platform",
+                "name": "Agent Platform",
+                "root_path": "/Users/a/aiworkspace/agent-platform",
+                "default_worker_card": worker_response.data["id"],
+                "worktree_strategy": "per_task",
+            },
+            format="json",
+        )
+        assert work_directory_response.status_code == status.HTTP_201_CREATED, work_directory_response.data
+
+        plane_repository = AgentRepository.objects.create(
+            workspace=workspace,
+            key="plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="plane",
+            full_name="michaelx1993/plane",
+            url="https://github.com/michaelx1993/plane",
+            clone_url="git@github.com:michaelx1993/plane.git",
+            default_branch="preview",
+        )
+        acp_repository = AgentRepository.objects.create(
+            workspace=workspace,
+            key="agent-control-plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="agent-control-plane",
+            full_name="michaelx1993/agent-control-plane",
+            url="https://github.com/michaelx1993/agent-control-plane",
+            clone_url="git@github.com:michaelx1993/agent-control-plane.git",
+            default_branch="main",
+        )
+
+        first_link_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directory-repositories/",
+            {
+                "work_directory": work_directory_response.data["id"],
+                "repository": str(plane_repository.id),
+                "relative_path": "./plane",
+                "sort_order": 10,
+            },
+            format="json",
+        )
+        second_link_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directory-repositories/",
+            {
+                "work_directory": work_directory_response.data["id"],
+                "repository": str(acp_repository.id),
+                "relative_path": "./agent-control-plane",
+                "sort_order": 20,
+            },
+            format="json",
+        )
+        mount_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-worker-mounts/",
+            {
+                "work_directory": work_directory_response.data["id"],
+                "worker_card": worker_response.data["id"],
+                "local_path": "/Users/a/aiworkspace/agent-platform",
+                "is_default": True,
+            },
+            format="json",
+        )
+
+        assert first_link_response.status_code == status.HTTP_201_CREATED, first_link_response.data
+        assert second_link_response.status_code == status.HTTP_201_CREATED, second_link_response.data
+        assert mount_response.status_code == status.HTTP_201_CREATED, mount_response.data
+        assert first_link_response.data["default_branch"] == "preview"
+        assert second_link_response.data["repository_key"] == "agent-control-plane"
+
+        detail_response = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directories/{work_directory_response.data['id']}/"
+        )
+        assert detail_response.status_code == status.HTTP_200_OK, detail_response.data
+        assert detail_response.data["repository_count"] == 2
+        assert detail_response.data["mount_count"] == 1
+        assert detail_response.data["default_worker_key"] == "mac-studio"
+
+        outbox = AgentConfigOutbox.objects.order_by("-id").first()
+        assert outbox.entity_type == "agent_worker_mount"
+        assert outbox.payload["local_path"] == "/Users/a/aiworkspace/agent-platform"
+
+    @pytest.mark.django_db
+    def test_project_default_and_task_override_resolve_work_directory(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+    ):
+        project = Project.objects.create(
+            name="Runtime Project",
+            identifier="RUN",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Build work directory context",
+            workspace=workspace,
+            project=project,
+            sequence_id=8,
+        )
+        mac_worker = AgentWorkerCard.objects.create(workspace=workspace, key="mac-studio", name="Mac Studio")
+        mbp_worker = AgentWorkerCard.objects.create(workspace=workspace, key="mbp", name="MBP")
+        default_directory = AgentWorkDirectory.objects.create(
+            workspace=workspace,
+            key="default-stack",
+            name="Default Stack",
+            root_path="/Users/a/aiworkspace/default-stack",
+            default_worker_card=mac_worker,
+        )
+        override_directory = AgentWorkDirectory.objects.create(
+            workspace=workspace,
+            key="hotfix-stack",
+            name="Hotfix Stack",
+            root_path="/Users/a/aiworkspace/hotfix-stack",
+            default_worker_card=mbp_worker,
+        )
+        repository = AgentRepository.objects.create(
+            workspace=workspace,
+            key="plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="plane",
+            full_name="michaelx1993/plane",
+            url="https://github.com/michaelx1993/plane",
+            clone_url="git@github.com:michaelx1993/plane.git",
+            default_branch="preview",
+        )
+        AgentWorkDirectoryRepository.objects.create(
+            workspace=workspace,
+            work_directory=default_directory,
+            repository=repository,
+            relative_path="./plane",
+        )
+        AgentWorkerMount.objects.create(
+            workspace=workspace,
+            work_directory=default_directory,
+            worker_card=mac_worker,
+            local_path="/Users/a/aiworkspace/default-stack",
+        )
+        AgentWorkerMount.objects.create(
+            workspace=workspace,
+            work_directory=override_directory,
+            worker_card=mbp_worker,
+            local_path="/Users/a/work/hotfix-stack",
+        )
+
+        project_default_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-project-defaults/",
+            {
+                "project": str(project.id),
+                "work_directory": str(default_directory.id),
+                "worker_card": str(mac_worker.id),
+            },
+            format="json",
+        )
+        assert project_default_response.status_code == status.HTTP_201_CREATED, project_default_response.data
+
+        project_resolution = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directory-resolution/"
+            f"?project_id={project.id}&worker_id={mac_worker.id}"
+        )
+        assert project_resolution.status_code == status.HTTP_200_OK, project_resolution.data
+        assert project_resolution.data["source"] == "project_default"
+        assert project_resolution.data["workDirectory"]["key"] == "default-stack"
+        assert project_resolution.data["worker"]["key"] == "mac-studio"
+        assert project_resolution.data["mount"]["localPath"] == "/Users/a/aiworkspace/default-stack"
+        assert project_resolution.data["repositories"][0]["relativePath"] == "./plane"
+
+        override_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-work-directory-overrides/",
+            {
+                "issue": str(issue.id),
+                "work_directory": str(override_directory.id),
+                "worker_card": str(mbp_worker.id),
+                "target_branch": "hotfix/agent-runtime",
+            },
+            format="json",
+        )
+        assert override_response.status_code == status.HTTP_201_CREATED, override_response.data
+
+        task_resolution = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-work-directory-resolution/"
+            f"?project_id={project.id}&work_item_id={issue.id}"
+        )
+        assert task_resolution.status_code == status.HTTP_200_OK, task_resolution.data
+        assert task_resolution.data["source"] == "task_override"
+        assert task_resolution.data["workDirectory"]["key"] == "hotfix-stack"
+        assert task_resolution.data["worker"]["key"] == "mbp"
+        assert task_resolution.data["mount"]["localPath"] == "/Users/a/work/hotfix-stack"
+
+        assert AgentProjectDefault.objects.get(project=project).work_directory == default_directory
+        assert AgentTaskWorkDirectoryOverride.objects.get(issue=issue).work_directory == override_directory
+
+    @pytest.mark.django_db
+    def test_agent_run_intent_includes_resolved_work_directory_context(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("AGENT_CONTROL_PLANE_URL", "http://control-plane.test")
+        project = Project.objects.create(
+            name="Runtime Project",
+            identifier="RUN",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Dispatch with work directory",
+            workspace=workspace,
+            project=project,
+            sequence_id=9,
+        )
+        agent = AgentUserAgent.objects.create(
+            workspace=workspace,
+            owner=create_user,
+            key="codex-default",
+            name="Codex Default",
+            runtime="codex",
+        )
+        worker = AgentWorkerCard.objects.create(workspace=workspace, key="mac-studio", name="Mac Studio")
+        work_directory = AgentWorkDirectory.objects.create(
+            workspace=workspace,
+            key="agent-platform",
+            name="Agent Platform",
+            root_path="/Users/a/aiworkspace/agent-platform",
+            default_worker_card=worker,
+            branch_policy={"default_target": "preview"},
+        )
+        repository = AgentRepository.objects.create(
+            workspace=workspace,
+            key="plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="plane",
+            full_name="michaelx1993/plane",
+            url="https://github.com/michaelx1993/plane",
+            clone_url="git@github.com:michaelx1993/plane.git",
+            default_branch="preview",
+        )
+        AgentWorkDirectoryRepository.objects.create(
+            workspace=workspace,
+            work_directory=work_directory,
+            repository=repository,
+            relative_path="./plane",
+        )
+        AgentWorkerMount.objects.create(
+            workspace=workspace,
+            work_directory=work_directory,
+            worker_card=worker,
+            local_path="/Users/a/aiworkspace/agent-platform",
+        )
+        AgentProjectDefault.objects.create(
+            workspace=workspace,
+            project=project,
+            work_directory=work_directory,
+            worker_card=worker,
+        )
+        posted = {}
+
+        class FakeResponse:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                return {"ok": True, "queued": True, "task": {"taskId": "task-1"}}
+
+        def fake_post(url, json, headers, timeout):
+            posted.update({"url": url, "json": json, "headers": headers, "timeout": timeout})
+            return FakeResponse()
+
+        monkeypatch.setattr("plane.api.views.agent.requests.post", fake_post)
+
+        response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-runs/",
+            {
+                "project_id": str(project.id),
+                "work_item_id": str(issue.id),
+                "agent_id": str(agent.id),
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.data
+        assert posted["json"]["workerKey"] == "mac-studio"
+        assert posted["json"]["workDirectory"]["source"] == "project_default"
+        assert posted["json"]["workDirectory"]["workDirectory"]["key"] == "agent-platform"
+        assert posted["json"]["workDirectory"]["workDirectory"]["branchPolicy"] == {"default_target": "preview"}
+        assert posted["json"]["workDirectory"]["worker"]["key"] == "mac-studio"
+        assert posted["json"]["workDirectory"]["mount"]["localPath"] == "/Users/a/aiworkspace/agent-platform"
+        assert posted["json"]["workDirectory"]["repositories"] == [
+            {
+                "id": str(repository.id),
+                "key": "plane",
+                "provider": "github",
+                "name": "plane",
+                "fullName": "michaelx1993/plane",
+                "url": "git@github.com:michaelx1993/plane.git",
+                "relativePath": "./plane",
+                "defaultBranch": "preview",
+                "worktreeStrategy": "per_run",
+                "isRequired": True,
+            }
+        ]
 
     @pytest.mark.django_db
     def test_agent_run_intent_forwards_selected_runtime_context(

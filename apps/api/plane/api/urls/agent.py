@@ -12,6 +12,8 @@ from plane.api.views import (
     AgentPromptListCreateAPIEndpoint,
     AgentPromptVersionDetailAPIEndpoint,
     AgentPromptVersionListCreateAPIEndpoint,
+    AgentProjectDefaultDetailAPIEndpoint,
+    AgentProjectDefaultListCreateAPIEndpoint,
     AgentProjectWorkspaceDetailAPIEndpoint,
     AgentProjectWorkspaceListCreateAPIEndpoint,
     AgentRepositoryDetailAPIEndpoint,
@@ -19,12 +21,21 @@ from plane.api.views import (
     AgentRoleDetailAPIEndpoint,
     AgentRoleListCreateAPIEndpoint,
     AgentRunIntentAPIEndpoint,
+    AgentTaskWorkDirectoryOverrideDetailAPIEndpoint,
+    AgentTaskWorkDirectoryOverrideListCreateAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
     AgentUserAgentListCreateAPIEndpoint,
     AgentUserSecretKeyDetailAPIEndpoint,
     AgentUserSecretKeyListCreateAPIEndpoint,
+    AgentWorkDirectoryDetailAPIEndpoint,
+    AgentWorkDirectoryListCreateAPIEndpoint,
+    AgentWorkDirectoryRepositoryDetailAPIEndpoint,
+    AgentWorkDirectoryRepositoryListCreateAPIEndpoint,
     AgentWorkerCardDetailAPIEndpoint,
     AgentWorkerCardListCreateAPIEndpoint,
+    AgentWorkerMountDetailAPIEndpoint,
+    AgentWorkerMountListCreateAPIEndpoint,
+    AgentWorkDirectoryResolutionAPIEndpoint,
 )
 
 urlpatterns = [
@@ -97,6 +108,61 @@ urlpatterns = [
         "workspaces/<str:slug>/agent-worker-cards/<uuid:pk>/",
         AgentWorkerCardDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
         name="agent-worker-card",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-work-directories/",
+        AgentWorkDirectoryListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-work-directory",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-work-directories/<uuid:pk>/",
+        AgentWorkDirectoryDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-work-directory",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-work-directory-repositories/",
+        AgentWorkDirectoryRepositoryListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-work-directory-repository",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-work-directory-repositories/<uuid:pk>/",
+        AgentWorkDirectoryRepositoryDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-work-directory-repository",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-worker-mounts/",
+        AgentWorkerMountListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-worker-mount",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-worker-mounts/<uuid:pk>/",
+        AgentWorkerMountDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-worker-mount",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-project-defaults/",
+        AgentProjectDefaultListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-project-default",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-project-defaults/<uuid:pk>/",
+        AgentProjectDefaultDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-project-default",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-work-directory-overrides/",
+        AgentTaskWorkDirectoryOverrideListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-task-work-directory-override",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-work-directory-overrides/<uuid:pk>/",
+        AgentTaskWorkDirectoryOverrideDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-task-work-directory-override",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-work-directory-resolution/",
+        AgentWorkDirectoryResolutionAPIEndpoint.as_view(http_method_names=["get"]),
+        name="agent-work-directory-resolution",
     ),
     path(
         "workspaces/<str:slug>/agent-user-secret-keys/",

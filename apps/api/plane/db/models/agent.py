@@ -365,6 +365,193 @@ class AgentRepository(BaseModel):
         return self.name
 
 
+class AgentWorkDirectory(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_work_directories")
+    key = models.SlugField(max_length=120)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    root_path = models.CharField(max_length=512, blank=True)
+    default_worker_card = models.ForeignKey(
+        "db.AgentWorkerCard",
+        on_delete=models.SET_NULL,
+        related_name="default_work_directories",
+        null=True,
+        blank=True,
+    )
+    worktree_strategy = models.CharField(max_length=40, default="per_task")
+    branch_policy = models.JSONField(default=dict, blank=True)
+    prd_path = models.CharField(max_length=512, default="prd.md")
+    status_path = models.CharField(max_length=512, default="status.md")
+    progress_path = models.CharField(max_length=512, default="progress.md")
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_work_directories"
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "key"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_work_directory_unique_key_workspace",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class AgentWorkDirectoryRepository(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_work_directory_repositories",
+    )
+    work_directory = models.ForeignKey(
+        "db.AgentWorkDirectory",
+        on_delete=models.CASCADE,
+        related_name="repositories",
+    )
+    repository = models.ForeignKey(
+        "db.AgentRepository",
+        on_delete=models.CASCADE,
+        related_name="work_directory_links",
+    )
+    relative_path = models.CharField(max_length=512, default=".")
+    default_branch = models.CharField(max_length=255, blank=True)
+    worktree_strategy = models.CharField(max_length=40, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_required = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_work_directory_repositories"
+        ordering = ("work_directory", "sort_order", "repository__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["work_directory", "repository"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_work_directory_repository_unique",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.work_directory.workspace
+        if not self.default_branch:
+            self.default_branch = self.repository.default_branch
+        if not self.worktree_strategy:
+            self.worktree_strategy = self.repository.worktree_strategy
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.work_directory.key}:{self.repository.key}"
+
+
+class AgentWorkerMount(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_worker_mounts")
+    work_directory = models.ForeignKey(
+        "db.AgentWorkDirectory",
+        on_delete=models.CASCADE,
+        related_name="worker_mounts",
+    )
+    worker_card = models.ForeignKey(
+        "db.AgentWorkerCard",
+        on_delete=models.CASCADE,
+        related_name="work_directory_mounts",
+    )
+    local_path = models.CharField(max_length=512)
+    is_default = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_worker_mounts"
+        ordering = ("work_directory", "worker_card__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["work_directory", "worker_card"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_worker_mount_unique_directory_worker",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.work_directory.workspace
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.worker_card.key}:{self.local_path}"
+
+
+class AgentProjectDefault(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_project_defaults")
+    project = models.OneToOneField("db.Project", on_delete=models.CASCADE, related_name="agent_default")
+    work_directory = models.ForeignKey(
+        "db.AgentWorkDirectory",
+        on_delete=models.SET_NULL,
+        related_name="project_defaults",
+        null=True,
+        blank=True,
+    )
+    worker_card = models.ForeignKey(
+        "db.AgentWorkerCard",
+        on_delete=models.SET_NULL,
+        related_name="project_defaults",
+        null=True,
+        blank=True,
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_project_defaults"
+        ordering = ("project__name",)
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.project.workspace
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.project.identifier}:{self.work_directory_id}"
+
+
+class AgentTaskWorkDirectoryOverride(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_work_directory_overrides",
+    )
+    issue = models.OneToOneField("db.Issue", on_delete=models.CASCADE, related_name="agent_work_directory_override")
+    work_directory = models.ForeignKey(
+        "db.AgentWorkDirectory",
+        on_delete=models.SET_NULL,
+        related_name="task_overrides",
+        null=True,
+        blank=True,
+    )
+    worker_card = models.ForeignKey(
+        "db.AgentWorkerCard",
+        on_delete=models.SET_NULL,
+        related_name="task_work_directory_overrides",
+        null=True,
+        blank=True,
+    )
+    target_branch = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_task_work_directory_overrides"
+        ordering = ("issue__sequence_id",)
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.issue.workspace
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.work_directory_id}"
+
+
 class AgentConfigOutbox(models.Model):
     id = models.BigAutoField(primary_key=True)
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_config_outbox")
