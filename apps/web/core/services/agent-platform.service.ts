@@ -137,6 +137,24 @@ export type AgentProjectWorkspace = {
   is_active: boolean;
 };
 
+export type AgentWorkDirectory = {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  root_path: string;
+  default_worker_card: string | null;
+  default_worker_key?: string;
+  worktree_strategy: string;
+  branch_policy: Record<string, unknown>;
+  prd_path: string;
+  status_path: string;
+  progress_path: string;
+  repository_count?: number;
+  mount_count?: number;
+  is_active: boolean;
+};
+
 export type AgentRepository = {
   id: string;
   project: string | null;
@@ -153,6 +171,56 @@ export type AgentRepository = {
   worktree_strategy: string;
   local_path: string;
   is_required: boolean;
+  is_active: boolean;
+};
+
+export type AgentWorkDirectoryRepository = {
+  id: string;
+  work_directory: string;
+  repository: string;
+  repository_key?: string;
+  repository_name?: string;
+  repository_url?: string;
+  relative_path: string;
+  default_branch: string;
+  worktree_strategy: string;
+  sort_order: number;
+  is_required: boolean;
+  is_active: boolean;
+};
+
+export type AgentWorkerMount = {
+  id: string;
+  work_directory: string;
+  work_directory_key?: string;
+  worker_card: string;
+  worker_key?: string;
+  worker_name?: string;
+  local_path: string;
+  is_default: boolean;
+  is_active: boolean;
+};
+
+export type AgentProjectDefault = {
+  id: string;
+  project: string;
+  project_identifier?: string;
+  work_directory: string | null;
+  work_directory_key?: string;
+  worker_card: string | null;
+  worker_key?: string;
+  is_active: boolean;
+};
+
+export type AgentTaskWorkDirectoryOverride = {
+  id: string;
+  issue: string;
+  issue_sequence_id?: number;
+  work_directory: string | null;
+  work_directory_key?: string;
+  worker_card: string | null;
+  worker_key?: string;
+  target_branch: string;
   is_active: boolean;
 };
 
@@ -177,8 +245,22 @@ export type AgentPlatformWorkspaceSnapshot = {
 
 export type AgentPlatformProjectSnapshot = {
   workerCards: AgentWorkerCard[];
+  workDirectories: AgentWorkDirectory[];
+  workDirectoryRepositories: AgentWorkDirectoryRepository[];
+  workerMounts: AgentWorkerMount[];
+  projectDefaults: AgentProjectDefault[];
+  taskWorkDirectoryOverrides: AgentTaskWorkDirectoryOverride[];
   projectWorkspaces: AgentProjectWorkspace[];
   repositories: AgentRepository[];
+};
+
+export type AgentPlatformWorkDirectorySnapshot = {
+  workerCards: AgentWorkerCard[];
+  workDirectories: AgentWorkDirectory[];
+  repositories: AgentRepository[];
+  workDirectoryRepositories: AgentWorkDirectoryRepository[];
+  workerMounts: AgentWorkerMount[];
+  projectDefaults: AgentProjectDefault[];
 };
 
 export type AgentRunIntentPayload = {
@@ -224,17 +306,50 @@ export class AgentPlatformService extends APIService {
   }
 
   async getProjectSnapshot(workspaceSlug: string, projectId: string): Promise<AgentPlatformProjectSnapshot> {
-    const [workerCards, projectWorkspaces, repositories] = await Promise.all([
+    const [
+      workerCards,
+      workDirectories,
+      repositories,
+      workDirectoryRepositories,
+      workerMounts,
+      projectDefaults,
+      taskWorkDirectoryOverrides,
+      projectWorkspaces,
+    ] = await Promise.all([
       this.list<AgentWorkerCard>(workspaceSlug, "agent-worker-cards"),
-      this.list<AgentProjectWorkspace>(workspaceSlug, "agent-project-workspaces"),
+      this.list<AgentWorkDirectory>(workspaceSlug, "agent-work-directories"),
       this.list<AgentRepository>(workspaceSlug, "agent-repositories"),
+      this.list<AgentWorkDirectoryRepository>(workspaceSlug, "agent-work-directory-repositories"),
+      this.list<AgentWorkerMount>(workspaceSlug, "agent-worker-mounts"),
+      this.list<AgentProjectDefault>(workspaceSlug, "agent-project-defaults"),
+      this.list<AgentTaskWorkDirectoryOverride>(workspaceSlug, "agent-task-work-directory-overrides"),
+      this.list<AgentProjectWorkspace>(workspaceSlug, "agent-project-workspaces"),
     ]);
 
     return {
       workerCards,
+      workDirectories,
+      workDirectoryRepositories,
+      workerMounts,
+      projectDefaults: projectDefaults.filter((item) => item.project === projectId),
+      taskWorkDirectoryOverrides,
       projectWorkspaces: projectWorkspaces.filter((item) => item.project === projectId),
-      repositories: repositories.filter((item) => item.project === projectId),
+      repositories: repositories.filter((item) => item.project === projectId || item.project === null),
     };
+  }
+
+  async getWorkDirectorySnapshot(workspaceSlug: string): Promise<AgentPlatformWorkDirectorySnapshot> {
+    const [workerCards, workDirectories, repositories, workDirectoryRepositories, workerMounts, projectDefaults] =
+      await Promise.all([
+        this.list<AgentWorkerCard>(workspaceSlug, "agent-worker-cards"),
+        this.list<AgentWorkDirectory>(workspaceSlug, "agent-work-directories"),
+        this.list<AgentRepository>(workspaceSlug, "agent-repositories"),
+        this.list<AgentWorkDirectoryRepository>(workspaceSlug, "agent-work-directory-repositories"),
+        this.list<AgentWorkerMount>(workspaceSlug, "agent-worker-mounts"),
+        this.list<AgentProjectDefault>(workspaceSlug, "agent-project-defaults"),
+      ]);
+
+    return { workerCards, workDirectories, repositories, workDirectoryRepositories, workerMounts, projectDefaults };
   }
 
   async createAgent(workspaceSlug: string, payload: Partial<AgentUserAgent>): Promise<AgentUserAgent> {
@@ -271,6 +386,67 @@ export class AgentPlatformService extends APIService {
 
   async createWorkerCard(workspaceSlug: string, payload: Partial<AgentWorkerCard>): Promise<AgentWorkerCard> {
     return this.create(workspaceSlug, "agent-worker-cards", payload);
+  }
+
+  async updateWorkerCard(
+    workspaceSlug: string,
+    workerCardId: string,
+    payload: Partial<AgentWorkerCard>
+  ): Promise<AgentWorkerCard> {
+    return this.update(workspaceSlug, "agent-worker-cards", workerCardId, payload);
+  }
+
+  async createWorkDirectory(workspaceSlug: string, payload: Partial<AgentWorkDirectory>): Promise<AgentWorkDirectory> {
+    return this.create(workspaceSlug, "agent-work-directories", payload);
+  }
+
+  async updateWorkDirectory(
+    workspaceSlug: string,
+    workDirectoryId: string,
+    payload: Partial<AgentWorkDirectory>
+  ): Promise<AgentWorkDirectory> {
+    return this.update(workspaceSlug, "agent-work-directories", workDirectoryId, payload);
+  }
+
+  async createWorkDirectoryRepository(
+    workspaceSlug: string,
+    payload: Partial<AgentWorkDirectoryRepository>
+  ): Promise<AgentWorkDirectoryRepository> {
+    return this.create(workspaceSlug, "agent-work-directory-repositories", payload);
+  }
+
+  async createWorkerMount(workspaceSlug: string, payload: Partial<AgentWorkerMount>): Promise<AgentWorkerMount> {
+    return this.create(workspaceSlug, "agent-worker-mounts", payload);
+  }
+
+  async createProjectDefault(
+    workspaceSlug: string,
+    payload: Partial<AgentProjectDefault>
+  ): Promise<AgentProjectDefault> {
+    return this.create(workspaceSlug, "agent-project-defaults", payload);
+  }
+
+  async updateProjectDefault(
+    workspaceSlug: string,
+    projectDefaultId: string,
+    payload: Partial<AgentProjectDefault>
+  ): Promise<AgentProjectDefault> {
+    return this.update(workspaceSlug, "agent-project-defaults", projectDefaultId, payload);
+  }
+
+  async createTaskWorkDirectoryOverride(
+    workspaceSlug: string,
+    payload: Partial<AgentTaskWorkDirectoryOverride>
+  ): Promise<AgentTaskWorkDirectoryOverride> {
+    return this.create(workspaceSlug, "agent-task-work-directory-overrides", payload);
+  }
+
+  async updateTaskWorkDirectoryOverride(
+    workspaceSlug: string,
+    taskOverrideId: string,
+    payload: Partial<AgentTaskWorkDirectoryOverride>
+  ): Promise<AgentTaskWorkDirectoryOverride> {
+    return this.update(workspaceSlug, "agent-task-work-directory-overrides", taskOverrideId, payload);
   }
 
   async createProjectWorkspace(

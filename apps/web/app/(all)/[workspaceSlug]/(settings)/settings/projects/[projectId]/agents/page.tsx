@@ -109,6 +109,23 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
     });
   };
 
+  const handleSaveProjectDefault = async (formData: FormData) => {
+    await submit("project-default", async () => {
+      const payload = {
+        project: projectId,
+        work_directory: optionalValueOf(formData, "work_directory"),
+        worker_card: optionalValueOf(formData, "worker_card"),
+        is_active: true,
+      };
+      const currentDefault = snapshot?.projectDefaults.find((item) => item.is_active);
+      if (currentDefault) {
+        await agentPlatformService.updateProjectDefault(workspaceSlug, currentDefault.id, payload);
+      } else {
+        await agentPlatformService.createProjectDefault(workspaceSlug, payload);
+      }
+    });
+  };
+
   const submit = async (key: string, action: () => Promise<void>) => {
     setSaving(key);
     try {
@@ -139,7 +156,7 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
           description={t("project_settings.agents.description")}
         />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
           <Panel title={t("project_settings.agents.worker_cards")}>
             <Form onSubmit={handleCreateWorkerCard}>
               <Field name="key" label={t("project_settings.agents.key")} placeholder="mac-studio" />
@@ -238,6 +255,25 @@ function AgentsProjectSettingsPage({ params }: Route.ComponentProps) {
               }))}
             />
           </Panel>
+
+          <Panel title={t("project_settings.agents.project_default")}>
+            <Form onSubmit={handleSaveProjectDefault}>
+              <WorkDirectorySelect name="work_directory" optional workDirectories={snapshot?.workDirectories ?? []} />
+              <WorkerSelect workerCards={snapshot?.workerCards ?? []} name="worker_card" optional />
+              <SubmitButton disabled={saving === "project-default"}>
+                {t("project_settings.agents.save_project_default")}
+              </SubmitButton>
+            </Form>
+            <List
+              empty={t("project_settings.agents.no_project_default")}
+              items={(snapshot?.projectDefaults ?? []).map((projectDefault) => ({
+                id: projectDefault.id,
+                title: projectDefault.project_identifier || currentProjectDetails?.identifier || projectId,
+                meta: `${projectDefault.work_directory_key || "-"} · ${projectDefault.worker_key || "-"}`,
+                description: t("project_settings.agents.project_default_description"),
+              }))}
+            />
+          </Panel>
         </div>
       </div>
     </SettingsContentWrapper>
@@ -320,6 +356,30 @@ function WorkerSelect(props: { name: string; optional?: boolean; workerCards: Ag
         {props.workerCards.map((worker) => (
           <option key={worker.id} value={worker.id}>
             {worker.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function WorkDirectorySelect(props: {
+  name: string;
+  optional?: boolean;
+  workDirectories: Array<{ id: string; name: string }>;
+}) {
+  return (
+    <label className="grid gap-1 text-body-sm-medium text-secondary">
+      Work Directory
+      <select
+        className="focus:border-primary min-h-9 rounded border border-subtle bg-surface-2 px-3 text-body-sm-regular text-primary outline-none"
+        name={props.name}
+        required={!props.optional}
+      >
+        {props.optional && <option value="">-</option>}
+        {props.workDirectories.map((directory) => (
+          <option key={directory.id} value={directory.id}>
+            {directory.name}
           </option>
         ))}
       </select>
