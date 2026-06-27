@@ -535,24 +535,22 @@ export function AgentPromptLibraryPage(props: TAgentPromptLibraryPageProps) {
                           {promptVersionsForSelectedPrompt.length === 0 ? (
                             <EmptyState message={t("workspace_settings.settings.agents.no_versions")} />
                           ) : (
-                            [...promptVersionsForSelectedPrompt]
-                              .toSorted((a, b) => b.version - a.version)
-                              .map((version) => (
-                                <div key={version.id} className="rounded border border-subtle bg-surface-1 p-3">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="text-body-sm-medium text-primary">v{version.version}</div>
-                                    <div className="text-caption-regular text-tertiary">
-                                      {version.variables?.join(", ") || "variables: -"}
-                                    </div>
+                            sortPromptVersionsByNewest(promptVersionsForSelectedPrompt).map((version) => (
+                              <div key={version.id} className="rounded border border-subtle bg-surface-1 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-body-sm-medium text-primary">v{version.version}</div>
+                                  <div className="text-caption-regular text-tertiary">
+                                    {version.variables?.join(", ") || "variables: -"}
                                   </div>
-                                  {version.changelog && (
-                                    <p className="mt-1 text-body-xs-regular text-secondary">{version.changelog}</p>
-                                  )}
-                                  <pre className="mt-2 max-h-36 overflow-auto rounded bg-surface-2 p-2 text-body-xs-regular whitespace-pre-wrap text-secondary">
-                                    {version.body}
-                                  </pre>
                                 </div>
-                              ))
+                                {version.changelog && (
+                                  <p className="mt-1 text-body-xs-regular text-secondary">{version.changelog}</p>
+                                )}
+                                <pre className="mt-2 max-h-36 overflow-auto rounded bg-surface-2 p-2 text-body-xs-regular whitespace-pre-wrap text-secondary">
+                                  {version.body}
+                                </pre>
+                              </div>
+                            ))
                           )}
                         </div>
                       </section>
@@ -785,23 +783,33 @@ function PromptStack(props: { agent: AgentUserAgent; empty: string }) {
     <section>
       <SectionHeader icon={<Link2 className="size-4" />} title="Prompt stack" />
       <div className="grid gap-2">
-        {[...stack]
-          .toSorted((a, b) => a.sort_order - b.sort_order)
-          .map((item) => (
-            <div key={item.id} className="rounded border border-subtle bg-surface-1 p-3">
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0 truncate text-body-sm-medium text-primary">{item.prompt_name}</div>
-                <div className="text-caption-regular shrink-0 text-tertiary">v{item.resolved_version}</div>
-              </div>
-              <div className="text-caption-regular mt-1 text-tertiary">
-                {item.slot} · {item.prompt_scope} · {item.prompt_kind} · {item.version_policy}
-              </div>
-              {item.role_key && <div className="mt-1 text-body-xs-regular text-secondary">{item.role_key}</div>}
+        {sortPromptStackByOrder(stack).map((item) => (
+          <div key={item.id} className="rounded border border-subtle bg-surface-1 p-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="min-w-0 truncate text-body-sm-medium text-primary">{item.prompt_name}</div>
+              <div className="text-caption-regular shrink-0 text-tertiary">v{item.resolved_version}</div>
             </div>
-          ))}
+            <div className="text-caption-regular mt-1 text-tertiary">
+              {item.slot} · {item.prompt_scope} · {item.prompt_kind} · {item.version_policy}
+            </div>
+            {item.role_key && <div className="mt-1 text-body-xs-regular text-secondary">{item.role_key}</div>}
+          </div>
+        ))}
       </div>
     </section>
   );
+}
+
+function sortPromptVersionsByNewest(versions: AgentPlatformWorkspaceSnapshot["promptVersions"]) {
+  const sortedVersions = Array.from(versions);
+  sortedVersions.sort((a, b) => b.version - a.version);
+  return sortedVersions;
+}
+
+function sortPromptStackByOrder(stack: NonNullable<AgentUserAgent["prompt_stack"]>) {
+  const sortedStack = Array.from(stack);
+  sortedStack.sort((a, b) => a.sort_order - b.sort_order);
+  return sortedStack;
 }
 
 function EmptyState(props: { message: string }) {
