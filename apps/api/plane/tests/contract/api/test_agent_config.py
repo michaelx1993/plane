@@ -16,6 +16,9 @@ from plane.db.models import (
     AgentTaskContextDocument,
     AgentTaskContextDocumentVersion,
     AgentTaskProgressEntry,
+    AgentTaskWorkflowInstance,
+    AgentTaskWorkflowNode,
+    AgentTaskWorkflowTransition,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentWorkDirectory,
@@ -996,6 +999,142 @@ class TestAgentConfigAPI:
         assert response.data["humanComments"][0]["body"] == "Use the Plane DB as source of truth."
         assert response.data["workDirectory"]["workDirectory"]["key"] == "agent-platform"
         assert response.data["workDirectory"]["repositories"][0]["relativePath"] == "./plane"
+
+    @pytest.mark.django_db
+    def test_new_issue_auto_creates_default_workflow_instance(self, api_key_client, workspace, create_user):
+        project = Project.objects.create(
+            name="Workflow Project",
+            identifier="WF",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+
+        issue = Issue.objects.create(name="Build workflow API", workspace=workspace, project=project)
+
+        workflow = AgentTaskWorkflowInstance.objects.get(issue=issue)
+        assert workflow.template_key == "agent-software-delivery"
+        assert workflow.active_node.key == "intake"
+        assert workflow.status == "active"
+        assert AgentTaskWorkflowNode.objects.filter(workflow_instance=workflow).count() == 12
+        assert list(workflow.nodes.filter(status="active").values_list("key", flat=True)) == ["intake"]
+        assert issue.state.name == "To-do / Intake / PRD"
+
+        response = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-workflow-instances/?issue_id={issue.id}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["results"][0]["active_node_key"] == "intake"
+        assert [node["key"] for node in response.data["results"][0]["nodes"]][:3] == [
+            "intake",
+            "development",
+            "agent_review",
+        ]
+
+    @pytest.mark.django_db
+    def test_workflow_actions_approve_and_set_auto(self, api_key_client, workspace, create_user):
+        project = Project.objects.create(
+            name="Gate Project",
+            identifier="GATE",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(name="Review release gate", workspace=workspace, project=project)
+        workflow = AgentTaskWorkflowInstance.objects.get(issue=issue)
+        merged_gate = workflow.nodes.get(key="merged_gate")
+
+        auto_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-workflow-actions/",
+            {
+                "workflow_instance": str(workflow.id),
+                "node_key": "merged_gate",
+                "action": "set_auto",
+                "reason": "Trusted release path",
+            },
+            format="json",
+        )
+
+        assert auto_response.status_code == status.HTTP_200_OK, auto_response.data
+        merged_gate.refresh_from_db()
+        assert merged_gate.mode == "auto"
+        assert auto_response.data["transition"]["action"] == "set_auto"
+
+        approve_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-workflow-actions/",
+            {
+                "workflow_instance": str(workflow.id),
+                "action": "approve",
+            },
+            format="json",
+        )
+
+        assert approve_response.status_code == status.HTTP_200_OK, approve_response.data
+        workflow.refresh_from_db()
+        assert workflow.active_node.key == "development"
+        assert workflow.status == "active"
+        assert workflow.nodes.get(key="intake").status == "completed"
+        assert workflow.nodes.get(key="development").status == "active"
+        assert AgentTaskWorkflowTransition.objects.filter(workflow_instance=workflow, action="approve").exists()
+        assert AgentTaskProgressEntry.objects.filter(issue=issue, body__icontains="Approved").exists()
+
+    @pytest.mark.django_db
+    def test_agent_failed_blocks_then_human_returns_to_development(self, api_key_client, workspace, create_user):
+        project = Project.objects.create(
+            name="Blocked Project",
+            identifier="BLK",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(name="Handle failed run", workspace=workspace, project=project)
+        workflow = AgentTaskWorkflowInstance.objects.get(issue=issue)
+        workflow.active_node.status = "pending"
+        workflow.active_node.save(update_fields=["status"])
+        development = workflow.nodes.get(key="development")
+        development.status = "active"
+        development.save(update_fields=["status"])
+        workflow.active_node = development
+        workflow.save(update_fields=["active_node"])
+
+        failed_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-workflow-actions/",
+            {
+                "issue": str(issue.id),
+                "action": "agent_failed",
+                "reason": "Tests failed",
+            },
+            format="json",
+        )
+
+        assert failed_response.status_code == status.HTTP_200_OK, failed_response.data
+        workflow.refresh_from_db()
+        assert workflow.status == "blocked"
+        assert workflow.active_node.key == "blocked"
+        assert workflow.nodes.get(key="development").status == "failed"
+
+        return_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-workflow-actions/",
+            {
+                "workflow_instance": str(workflow.id),
+                "action": "return",
+                "target_node_key": "development",
+                "reason": "Added correction in progress.",
+            },
+            format="json",
+        )
+
+        assert return_response.status_code == status.HTTP_200_OK, return_response.data
+        workflow.refresh_from_db()
+        assert workflow.status == "active"
+        assert workflow.active_node.key == "development"
+        assert workflow.nodes.get(key="blocked").status == "completed"
+        assert AgentTaskWorkflowTransition.objects.filter(workflow_instance=workflow, action="return").exists()
+        assert AgentTaskProgressEntry.objects.filter(issue=issue, body__icontains="Returned workflow").exists()
 
     @pytest.mark.django_db
     def test_agent_run_intent_forwards_selected_runtime_context(

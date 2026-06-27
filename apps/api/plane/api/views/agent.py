@@ -9,6 +9,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 import requests
@@ -28,6 +29,10 @@ from plane.api.serializers import (
     AgentTaskContextDocumentSerializer,
     AgentTaskContextDocumentVersionSerializer,
     AgentTaskProgressEntrySerializer,
+    AgentTaskWorkflowActionSerializer,
+    AgentTaskWorkflowInstanceSerializer,
+    AgentTaskWorkflowNodeSerializer,
+    AgentTaskWorkflowTransitionSerializer,
     AgentTaskWorkDirectoryOverrideSerializer,
     AgentUserAgentSerializer,
     AgentUserSecretKeySerializer,
@@ -48,6 +53,9 @@ from plane.db.models import (
     AgentTaskContextDocument,
     AgentTaskContextDocumentVersion,
     AgentTaskProgressEntry,
+    AgentTaskWorkflowInstance,
+    AgentTaskWorkflowNode,
+    AgentTaskWorkflowTransition,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
@@ -58,6 +66,7 @@ from plane.db.models import (
     Issue,
     Project,
     Workspace,
+    ensure_default_task_workflow_instance,
 )
 
 from .base import BaseAPIView
@@ -520,6 +529,194 @@ class AgentTaskProgressEntryListCreateAPIEndpoint(AgentConfigSourceListCreateAPI
         return queryset
 
 
+class AgentTaskWorkflowInstanceListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentTaskWorkflowInstance
+    serializer_class = AgentTaskWorkflowInstanceSerializer
+    entity_type = "agent_task_workflow_instance"
+
+    def get_queryset(self):
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("issue", "issue__project", "active_node", "default_agent")
+            .prefetch_related("nodes__assigned_agent")
+        )
+        issue_id = self.request.GET.get("issue_id")
+        project_id = self.request.GET.get("project_id")
+        status_value = self.request.GET.get("status")
+        active_node_key = self.request.GET.get("active_node_key")
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if project_id:
+            queryset = queryset.filter(issue__project_id=project_id)
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        if active_node_key:
+            queryset = queryset.filter(active_node__key=active_node_key)
+        return queryset
+
+    def post(self, request, slug):
+        issue_id = request.data.get("issue")
+        if not issue_id:
+            return Response({"issue": "Issue is required."}, status=status.HTTP_400_BAD_REQUEST)
+        issue = get_object_or_404(Issue, id=issue_id, workspace__slug=slug)
+        workflow = ensure_default_task_workflow_instance(issue, actor=request.user)
+        if request.data.get("default_agent"):
+            default_agent = get_object_or_404(
+                AgentUserAgent,
+                id=request.data["default_agent"],
+                workspace__slug=slug,
+            )
+            workflow.default_agent = default_agent
+            workflow.save(update_fields=["default_agent", "updated_at"])
+            _record_agent_config_outbox(
+                workflow.workspace,
+                self.entity_type,
+                "update",
+                workflow,
+                self.serializer_class,
+            )
+        return Response(
+            self.serializer_class(workflow, context={"workspace_id": workflow.workspace_id}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AgentTaskWorkflowInstanceDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentTaskWorkflowInstance
+    serializer_class = AgentTaskWorkflowInstanceSerializer
+    entity_type = "agent_task_workflow_instance"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("issue", "issue__project", "active_node", "default_agent")
+            .prefetch_related("nodes__assigned_agent")
+        )
+
+
+class AgentTaskWorkflowNodeListAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+    use_read_replica = True
+
+    def get(self, request, slug):
+        queryset = AgentTaskWorkflowNode.objects.filter(workspace__slug=slug).select_related(
+            "workflow_instance",
+            "issue",
+            "assigned_agent",
+        )
+        issue_id = request.GET.get("issue_id")
+        workflow_instance_id = request.GET.get("workflow_instance_id")
+        node_type = request.GET.get("node_type")
+        status_value = request.GET.get("status")
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if workflow_instance_id:
+            queryset = queryset.filter(workflow_instance_id=workflow_instance_id)
+        if node_type:
+            queryset = queryset.filter(node_type=node_type)
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        queryset = queryset.order_by(request.GET.get("order_by", "sort_order"))
+        workspace = Workspace.objects.get(slug=slug)
+        return self.paginate(
+            request=request,
+            queryset=queryset,
+            on_results=lambda results: AgentTaskWorkflowNodeSerializer(
+                results,
+                many=True,
+                context={"workspace_id": workspace.id},
+            ).data,
+        )
+
+
+class AgentTaskWorkflowNodeDetailAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+
+    def get_object(self, slug, pk):
+        return get_object_or_404(
+            AgentTaskWorkflowNode.objects.select_related("workflow_instance", "issue", "assigned_agent"),
+            id=pk,
+            workspace__slug=slug,
+        )
+
+    def get(self, request, slug, pk):
+        node = self.get_object(slug, pk)
+        return Response(AgentTaskWorkflowNodeSerializer(node, context={"workspace_id": node.workspace_id}).data)
+
+    def patch(self, request, slug, pk):
+        node = self.get_object(slug, pk)
+        serializer = AgentTaskWorkflowNodeSerializer(
+            node,
+            data=request.data,
+            partial=True,
+            context={"workspace_id": node.workspace_id},
+        )
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            node = serializer.save()
+            _record_agent_config_outbox(
+                node.workspace,
+                "agent_task_workflow_node",
+                "update",
+                node,
+                AgentTaskWorkflowNodeSerializer,
+            )
+        return Response(AgentTaskWorkflowNodeSerializer(node, context={"workspace_id": node.workspace_id}).data)
+
+
+class AgentTaskWorkflowTransitionListAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+    use_read_replica = True
+
+    def get(self, request, slug):
+        queryset = AgentTaskWorkflowTransition.objects.filter(workspace__slug=slug).select_related(
+            "workflow_instance",
+            "issue",
+            "from_node",
+            "to_node",
+            "actor",
+        )
+        issue_id = request.GET.get("issue_id")
+        workflow_instance_id = request.GET.get("workflow_instance_id")
+        action = request.GET.get("action")
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if workflow_instance_id:
+            queryset = queryset.filter(workflow_instance_id=workflow_instance_id)
+        if action:
+            queryset = queryset.filter(action=action)
+        queryset = queryset.order_by(request.GET.get("order_by", "created_at"))
+        workspace = Workspace.objects.get(slug=slug)
+        return self.paginate(
+            request=request,
+            queryset=queryset,
+            on_results=lambda results: AgentTaskWorkflowTransitionSerializer(
+                results,
+                many=True,
+                context={"workspace_id": workspace.id},
+            ).data,
+        )
+
+
+class AgentTaskWorkflowActionAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+
+    def post(self, request, slug):
+        serializer = AgentTaskWorkflowActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        with transaction.atomic():
+            workflow = _resolve_task_workflow_for_action(slug, data)
+            result = _apply_task_workflow_action(workflow, data, request)
+        return Response(result, status=status.HTTP_200_OK)
+
+
 class AgentTaskContextSnapshotAPIEndpoint(BaseAPIView):
     permission_classes = [WorkspaceEntityPermission]
     authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
@@ -914,6 +1111,192 @@ def _record_task_context_progress(issue, body, request, entry_type="progress", s
         ),
     )
     return progress
+
+
+def _resolve_task_workflow_for_action(slug, data):
+    workflow = None
+    if data.get("workflow_instance"):
+        workflow = AgentTaskWorkflowInstance.objects.select_for_update().filter(
+            id=data["workflow_instance"],
+            workspace__slug=slug,
+            is_active=True,
+        ).first()
+    elif data.get("issue"):
+        issue = get_object_or_404(Issue, id=data["issue"], workspace__slug=slug)
+        workflow = ensure_default_task_workflow_instance(issue)
+        workflow = AgentTaskWorkflowInstance.objects.select_for_update().get(id=workflow.id)
+    if workflow is None:
+        raise Http404
+    return workflow
+
+
+def _apply_task_workflow_action(workflow, data, request):
+    workspace = workflow.workspace
+    nodes = {
+        node.key: node
+        for node in AgentTaskWorkflowNode.objects.select_for_update()
+        .filter(workflow_instance=workflow, is_active=True)
+    }
+    from_node = _resolve_task_workflow_action_node(workflow, nodes, data)
+    action = data["action"]
+
+    if action in {"set_auto", "set_manual"}:
+        mode = "auto" if action == "set_auto" else "manual"
+        from_node.mode = mode
+        from_node.save(update_fields=["mode", "updated_at"])
+        transition = _create_task_workflow_transition(workflow, from_node, from_node, action, request, data)
+        _record_agent_config_outbox(
+            workspace,
+            "agent_task_workflow_node",
+            "update",
+            from_node,
+            AgentTaskWorkflowNodeSerializer,
+        )
+        _record_agent_config_outbox(
+            workspace,
+            "agent_task_workflow_transition",
+            "create",
+            transition,
+            AgentTaskWorkflowTransitionSerializer,
+        )
+        _record_task_context_progress(
+            workflow.issue,
+            f"Set workflow node {from_node.name} to {mode} mode.",
+            request,
+            entry_type="decision",
+            source="system",
+        )
+        return _serialize_task_workflow_action_result(workflow, transition)
+
+    target_node = _resolve_task_workflow_target_node(nodes, from_node, action, data)
+    now = timezone.now()
+    if action == "agent_failed":
+        from_node.status = "failed"
+        from_node.completed_at = now
+        workflow.status = "blocked"
+    elif action == "block":
+        from_node.status = "blocked"
+        workflow.status = "blocked"
+    else:
+        from_node.status = "completed"
+        from_node.completed_at = now
+        workflow.status = "done" if target_node.key == "done" else "active"
+
+    target_node.status = "active"
+    if target_node.started_at is None:
+        target_node.started_at = now
+    workflow.active_node = target_node
+
+    from_node.save(update_fields=["status", "completed_at", "updated_at"])
+    target_node.save(update_fields=["status", "started_at", "updated_at"])
+    workflow.save(update_fields=["status", "active_node", "updated_at"])
+    _sync_task_workflow_issue_state(workflow.issue, target_node)
+    transition = _create_task_workflow_transition(workflow, from_node, target_node, action, request, data)
+    for instance, entity_type, serializer_class in [
+        (from_node, "agent_task_workflow_node", AgentTaskWorkflowNodeSerializer),
+        (target_node, "agent_task_workflow_node", AgentTaskWorkflowNodeSerializer),
+        (workflow, "agent_task_workflow_instance", AgentTaskWorkflowInstanceSerializer),
+        (transition, "agent_task_workflow_transition", AgentTaskWorkflowTransitionSerializer),
+    ]:
+        operation = "create" if instance is transition else "update"
+        _record_agent_config_outbox(workspace, entity_type, operation, instance, serializer_class)
+    _record_task_context_progress(
+        workflow.issue,
+        _task_workflow_progress_body(action, from_node, target_node),
+        request,
+        entry_type="decision" if action in {"approve", "return", "block"} else "feedback",
+        source="system",
+    )
+    return _serialize_task_workflow_action_result(workflow, transition)
+
+
+def _resolve_task_workflow_action_node(workflow, nodes, data):
+    if data.get("node"):
+        for node in nodes.values():
+            if str(node.id) == str(data["node"]):
+                return node
+        raise Http404
+    if data.get("node_key"):
+        node = nodes.get(data["node_key"])
+        if node is None:
+            raise Http404
+        return node
+    if workflow.active_node_id:
+        for node in nodes.values():
+            if node.id == workflow.active_node_id:
+                return node
+    raise Http404
+
+
+def _resolve_task_workflow_target_node(nodes, from_node, action, data):
+    if action in {"agent_failed", "block"}:
+        target_key = "blocked"
+    elif action == "return":
+        target_key = data.get("target_node_key") or "development"
+    else:
+        target_key = data.get("target_node_key") or _default_task_workflow_exit(from_node)
+    target_node = nodes.get(target_key)
+    if target_node is None:
+        raise Http404
+    if target_key == from_node.key and action != "approve":
+        return target_node
+    allowed_exits = set(from_node.main_exits or [])
+    if action == "return":
+        allowed_exits.update(["intake", "development", "human_review", "merged_gate", "released_gate", "deployed_gate"])
+    if target_key not in allowed_exits and target_key != "blocked":
+        raise Http404
+    return target_node
+
+
+def _default_task_workflow_exit(node):
+    exits = [exit_key for exit_key in (node.main_exits or []) if exit_key != "blocked"]
+    if not exits:
+        raise Http404
+    return exits[0]
+
+
+def _create_task_workflow_transition(workflow, from_node, to_node, action, request, data):
+    actor = request.user if getattr(request.user, "is_authenticated", False) else None
+    transition = AgentTaskWorkflowTransition.objects.create(
+        workspace=workflow.workspace,
+        workflow_instance=workflow,
+        issue=workflow.issue,
+        from_node=from_node,
+        to_node=to_node,
+        action=action,
+        reason=data.get("reason", ""),
+        actor=actor,
+        metadata=data.get("metadata") or {},
+    )
+    return transition
+
+
+def _sync_task_workflow_issue_state(issue, node):
+    from plane.db.models.agent import _sync_issue_state_to_workflow_node
+
+    _sync_issue_state_to_workflow_node(issue, node)
+
+
+def _task_workflow_progress_body(action, from_node, target_node):
+    return {
+        "approve": f"Approved {from_node.name}; moved workflow to {target_node.name}.",
+        "return": f"Returned workflow from {from_node.name} to {target_node.name}.",
+        "block": f"Blocked workflow at {from_node.name}; moved to {target_node.name}.",
+        "agent_failed": f"Agent node {from_node.name} failed; moved workflow to {target_node.name}.",
+    }.get(action, f"Moved workflow from {from_node.name} to {target_node.name}.")
+
+
+def _serialize_task_workflow_action_result(workflow, transition):
+    workflow = (
+        AgentTaskWorkflowInstance.objects.select_related("issue", "issue__project", "active_node", "default_agent")
+        .prefetch_related("nodes__assigned_agent")
+        .get(id=workflow.id)
+    )
+    context = {"workspace_id": workflow.workspace_id}
+    return {
+        "workflow": AgentTaskWorkflowInstanceSerializer(workflow, context=context).data,
+        "transition": AgentTaskWorkflowTransitionSerializer(transition, context=context).data,
+    }
 
 
 def _agent_task_context_request_source(request):
