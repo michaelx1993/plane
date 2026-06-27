@@ -19,12 +19,13 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 - Agent / Prompt API 已合入并发布到 `plane-components-v0.0.23`。
 - Worker / Work Directory / Repository API 已合入并发布到 `plane-components-v0.0.24`。
 - Task Context Documents API 已合入并发布到 `plane-components-v0.0.25`。
+- Workflow Instance / Human Gate API 已合入，正在等待 release / deploy 验证。
 
 尚未形成闭环：
 
 - Agent Library / Prompt Library 仍不是主工作流下的一等可用 UI。
 - Workers / Work Directories 仍缺少可配置 UI。
-- Workflow Instance、Human Gate、Blocked/return/auto mode 还没有真实数据模型和 UI 操作闭环。
+- Workflow Instance、Human Gate、Blocked/return/auto mode 已有后端数据模型和 API，尚未形成 UI 操作闭环。
 - ACP run evidence 还没有稳定回流到 Task Detail。
 
 ## 执行原则
@@ -111,7 +112,7 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 
 ### PR C：Workflow Instance 与 Human Gate API
 
-状态：开发中。
+状态：已合入，等待 release / deploy 验证。
 
 目标：
 
