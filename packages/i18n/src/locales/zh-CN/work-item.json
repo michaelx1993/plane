@@ -290,6 +290,31 @@
       "click_to_downvote": "点击反对",
       "click_to_view_upvotes": "点击查看赞成票",
       "click_to_view_downvotes": "点击查看反对票"
+    },
+    "task_context": {
+      "title": "任务上下文",
+      "description": "这个任务可被 Agent 读取的 PRD、状态、进度和人工补充上下文。",
+      "active_node": "当前节点",
+      "owner": "负责人",
+      "work_directory": "工作目录",
+      "worker": "Worker",
+      "status_title": "status.md",
+      "prd_title": "prd.md",
+      "progress_title": "progress.md",
+      "human_context": "人工上下文",
+      "empty_status": "还没有 status.md。",
+      "empty_prd": "还没有 prd.md。",
+      "empty_progress": "还没有进度记录。",
+      "empty_human_context": "还没有人工评论。",
+      "progress_append_only": "只追加的执行日志",
+      "progress_placeholder": "追加进度、证据、决策或交接说明...",
+      "append_progress": "追加进度",
+      "progress_appended": "进度已追加。",
+      "progress_append_failed": "无法追加进度。",
+      "document_saved": "任务文档已保存。",
+      "document_save_failed": "无法保存任务文档。",
+      "unavailable": "这个工作项暂时无法读取任务上下文。",
+      "prd_locked": "回到 Intake 节点后才能编辑 PRD。"
     }
   },
   "sub_work_item": {

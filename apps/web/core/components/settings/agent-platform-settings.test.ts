@@ -47,6 +47,8 @@ const agentCenterWorkerDirectoryPageSource = read(
 );
 const issueWidgetActionSource = read("apps/web/core/components/issues/issue-detail-widgets/action-buttons.tsx");
 const agentRunActionSource = read("apps/web/core/components/issues/issue-detail-widgets/agent-run-action-button.tsx");
+const issueMainContentSource = read("apps/web/core/components/issues/issue-detail/main-content.tsx");
+const taskContextPanelSource = read("apps/web/core/components/issues/issue-detail/task-context-panel.tsx");
 const serviceSource = read("apps/web/core/services/agent-platform.service.ts");
 
 assert.ok(routeSource.includes(":workspaceSlug/settings/agents"), "workspace Agent Library route should be registered");
@@ -241,6 +243,39 @@ assert.ok(
     agentRunActionSource.includes("copyRunIntent"),
   "Agent run action should expose a resilient trigger, assemble Agent context, and queue run intents"
 );
+assert.ok(
+  issueMainContentSource.includes("TaskContextPanel") &&
+    issueMainContentSource.indexOf("<TaskContextPanel") < issueMainContentSource.indexOf("<IssueDetailWidgets"),
+  "Task Detail should render the Agent task context shell before legacy widgets"
+);
+assert.ok(
+  taskContextPanelSource.includes('data-testid="task-context-panel"') &&
+    taskContextPanelSource.includes("getTaskContextSnapshot") &&
+    taskContextPanelSource.includes("listTaskWorkflowInstances") &&
+    taskContextPanelSource.includes("createTaskContextDocument") &&
+    taskContextPanelSource.includes("updateTaskContextDocument") &&
+    taskContextPanelSource.includes("createTaskProgressEntry") &&
+    taskContextPanelSource.includes('documentType="status"') &&
+    taskContextPanelSource.includes('documentType="prd"') &&
+    taskContextPanelSource.includes('activeNode.key !== "intake"') &&
+    taskContextPanelSource.includes('entry_type: "progress"') &&
+    taskContextPanelSource.includes('source: "human"') &&
+    !taskContextPanelSource.includes("updateTaskProgressEntry"),
+  "Task context shell should read snapshots, edit status/PRD, and append progress entries without mutating history"
+);
+assert.ok(
+  serviceSource.includes("AgentTaskContextSnapshot") &&
+    serviceSource.includes("getTaskContextSnapshot") &&
+    serviceSource.includes("agent-task-context-snapshot") &&
+    serviceSource.includes("listTaskWorkflowInstances") &&
+    serviceSource.includes("agent-task-workflow-instances") &&
+    serviceSource.includes("createTaskContextDocument") &&
+    serviceSource.includes("updateTaskContextDocument") &&
+    serviceSource.includes("createTaskProgressEntry") &&
+    serviceSource.includes("agent-task-progress-entries") &&
+    !serviceSource.includes("updateTaskProgressEntry"),
+  "agent platform service should expose task context snapshot, workflow, document edit, and append-only progress APIs"
+);
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {
   const navigationMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/navigation.json`));
@@ -281,6 +316,14 @@ for (const locale of ["en", "zh-CN", "zh-TW"]) {
   assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
   assert.ok(workItemMessages.issue.agent_run.start, `${locale} work item Agent run start is required`);
   assert.ok(workItemMessages.issue.agent_run.queued, `${locale} work item Agent run queued is required`);
+  assert.ok(workItemMessages.issue.task_context.title, `${locale} task context title is required`);
+  assert.ok(workItemMessages.issue.task_context.status_title, `${locale} task context status label is required`);
+  assert.ok(workItemMessages.issue.task_context.prd_title, `${locale} task context PRD label is required`);
+  assert.ok(
+    workItemMessages.issue.task_context.append_progress,
+    `${locale} task context append progress label is required`
+  );
+  assert.ok(workItemMessages.issue.task_context.prd_locked, `${locale} task context PRD lock copy is required`);
 }
 
 console.log("agent_platform_settings=passed");

@@ -36,6 +36,7 @@ import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
 import type { TIssueOperations } from "./root";
+import { TaskContextPanel } from "./task-context-panel";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -153,6 +154,13 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           workspaceSlug={workspaceSlug}
         />
 
+        <TaskContextPanel
+          workspaceSlug={workspaceSlug}
+          projectId={issue.project_id}
+          issueId={issue.id}
+          disabled={isArchived || !isEditable}
+        />
+
         <div className="flex items-center justify-between gap-2">
           {currentUser && (
             <IssueReaction
@@ -174,10 +182,15 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 isRestoreDisabled: !isEditable || isArchived,
               }}
               fetchHandlers={{
-                listDescriptionVersions: (issueId) =>
-                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, issueId),
-                retrieveDescriptionVersion: (issueId, versionId) =>
-                  workItemVersionService.retrieveDescriptionVersion(workspaceSlug, projectId, issueId, versionId),
+                listDescriptionVersions: (descriptionIssueId) =>
+                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, descriptionIssueId),
+                retrieveDescriptionVersion: (descriptionIssueId, versionId) =>
+                  workItemVersionService.retrieveDescriptionVersion(
+                    workspaceSlug,
+                    projectId,
+                    descriptionIssueId,
+                    versionId
+                  ),
               }}
               handleRestore={(descriptionHTML) => editorRef.current?.setEditorValue(descriptionHTML, true)}
               projectId={projectId}
