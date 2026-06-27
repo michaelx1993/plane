@@ -1,7 +1,7 @@
 # 下一阶段改造计划
 
-Status: Draft execution plan
-Last updated: 2026-06-26
+Status: Active execution plan
+Last updated: 2026-06-27
 
 本文件回答“入口收敛后，接下来具体改什么、按什么顺序改、每一步怎么验收”。
 
@@ -9,7 +9,7 @@ Last updated: 2026-06-26
 
 ## 当前基线
 
-已完成或正在合入：
+已完成并发布：
 
 - Agent Control Center 文档 PR 已合入。
 - 主入口已新增 Tasks、Agents、Prompts、Workflows、Workers、Work Directories 页面壳。
@@ -17,8 +17,11 @@ Last updated: 2026-06-26
 - Billing / Plan 和 Export 已从主要入口移除。
 - 中文 / 英文切换已上线。
 - 侧边栏从 legacy Projects chrome 收敛到 Agent Center 的修复在独立 PR 中处理。
+- Agent / Prompt API 已合入并发布到 `plane-components-v0.0.23`。
+- Worker / Work Directory API 已合入并发布到 `plane-components-v0.0.24`。
+- Task Context Documents API 已合入并发布到 `plane-components-v0.0.25`。
 
-当前仍是页面壳阶段。核心业务数据、Agent/Prompt CRUD、Task Workflow Instance、Human Gate、ACP evidence 还没有完整闭环。
+当前仍缺少 UI 和 workflow 闭环。Agent/Prompt、Worker/Work Directory、Task Context 已有后端底座；Task Workflow Instance、Human Gate、Task Detail 操作、ACP evidence 还没有完整闭环。
 
 ## 改造主线
 
@@ -262,32 +265,31 @@ API contract：
 - 下一次 Agent run 能读取最新 PRD/status/progress/human comments。
 - Plane 控制台、ACP run、worker progress 三者状态一致。
 
-## 第一批应该马上做的事
+## 下一批应该马上做的事
 
-入口收敛完成后，优先做以下 3 件事：
+后端底座合入后，优先做以下 4 件事：
 
-1. **PR 1 Agent / Prompt API**：没有数据模型，UI 只能继续做假数据。
-2. **PR 3 Worker / Work Directory API**：没有执行目录和 worker 解析，Agent 无法稳定开发多仓任务。
-3. **PR 5 Task Context Documents**：没有 PRD/status/progress，Agent 缺少可持续读写的任务上下文。
+1. **Workflow Instance / Human Gate API**：没有 task workflow 实例，Plane 仍无法成为流程控制中心。
+2. **Tasks Center / Task Detail UI**：没有 task 详情闭环，用户看不到 workflow、status、progress、PRD 和人工门操作。
+3. **Agent / Prompt UI**：后端已可写，必须把 Agent Library 和 Prompt Library 做成一等入口。
+4. **Workers / Work Directories UI**：后端已可写，必须让用户能配置 worker、work directory、多仓和 task override。
 
-推荐顺序：
+更新后的推荐顺序：
 
 ```text
-Agent / Prompt API
--> Worker / Work Directory API
--> Task Context Documents
+Workflow Instance / Human Gate API
+-> Tasks Center / Task Detail
 -> Agent / Prompt UI
 -> Workers / Work Directories UI
--> Workflow Instance
--> Tasks Center / Task Detail
 -> ACP Run Evidence
 ```
 
 原因：
 
-- API 和 source tables 先落，后续 UI 才不会反复推倒。
-- Work Directory 必须早于真实 Agent dispatch，否则多仓开发和 worker mount 会后补得很痛。
-- Task Context Documents 必须早于 Workflow Instance，否则 Intake、Development、Review 没有统一上下文。
+- Workflow Instance 是 Agent 托管平台的控制主线，不先落会继续回到 legacy state board 视角。
+- Task Detail 必须紧跟 workflow，否则 Human Gate、Blocked、return、auto mode 没有可操作界面。
+- Agent/Prompt 与 Worker/Work Directory UI 可以接现有真实 API，不需要继续做假数据。
+- ACP Evidence 最后打通，因为它依赖 workflow nodes、task context、worker resolution 和 run projection。
 
 ## 边界
 

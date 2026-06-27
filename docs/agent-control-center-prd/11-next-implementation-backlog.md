@@ -1,7 +1,7 @@
 # 下一阶段执行 Backlog
 
-Status: Draft execution backlog
-Last updated: 2026-06-26
+Status: Active execution backlog
+Last updated: 2026-06-27
 
 本文件把 PRD 和工程路线图收敛成下一批可开发、可测试、可合入的 PR 队列。
 
@@ -17,16 +17,13 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 - Billing / Plan 和 Export 已从主要入口移除。
 - 中文 / 英文切换已上线。
 - Agent / Prompt API 已合入并发布到 `plane-components-v0.0.23`。
-
-进行中：
-
-- Worker / Work Directory / Repository API 正在开发，用于支持多仓目录、worker mount、project default 和 task override。
+- Worker / Work Directory / Repository API 已合入并发布到 `plane-components-v0.0.24`。
+- Task Context Documents API 已合入并发布到 `plane-components-v0.0.25`。
 
 尚未形成闭环：
 
 - Agent Library / Prompt Library 仍不是主工作流下的一等可用 UI。
 - Workers / Work Directories 仍缺少可配置 UI。
-- Task Context Documents 还没有 Plane DB source of truth。
 - Workflow Instance、Human Gate、Blocked/return/auto mode 还没有真实数据模型和 UI 操作闭环。
 - ACP run evidence 还没有稳定回流到 Task Detail。
 
@@ -78,7 +75,7 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 
 ### PR B：Task Context Documents API
 
-状态：进行中。
+状态：已合入并发布到 `plane-components-v0.0.25`。
 
 目标：
 
