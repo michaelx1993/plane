@@ -290,6 +290,31 @@
       "click_to_downvote": "點擊反對",
       "click_to_view_upvotes": "點擊查看贊成票",
       "click_to_view_downvotes": "點擊查看反對票"
+    },
+    "task_context": {
+      "title": "任務上下文",
+      "description": "這個任務可被 Agent 讀取的 PRD、狀態、進度和人工補充上下文。",
+      "active_node": "目前節點",
+      "owner": "負責人",
+      "work_directory": "工作目錄",
+      "worker": "Worker",
+      "status_title": "status.md",
+      "prd_title": "prd.md",
+      "progress_title": "progress.md",
+      "human_context": "人工上下文",
+      "empty_status": "還沒有 status.md。",
+      "empty_prd": "還沒有 prd.md。",
+      "empty_progress": "還沒有進度記錄。",
+      "empty_human_context": "還沒有人工留言。",
+      "progress_append_only": "只追加的執行日誌",
+      "progress_placeholder": "追加進度、證據、決策或交接說明...",
+      "append_progress": "追加進度",
+      "progress_appended": "進度已追加。",
+      "progress_append_failed": "無法追加進度。",
+      "document_saved": "任務文件已儲存。",
+      "document_save_failed": "無法儲存任務文件。",
+      "unavailable": "這個工作事項暫時無法讀取任務上下文。",
+      "prd_locked": "回到 Intake 節點後才能編輯 PRD。"
     }
   },
   "sub_work_item": {

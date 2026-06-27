@@ -224,6 +224,166 @@ export type AgentTaskWorkDirectoryOverride = {
   is_active: boolean;
 };
 
+export type AgentTaskContextDocumentType = "prd" | "status";
+
+export type AgentTaskContextDocument = {
+  id: string;
+  workspace: string;
+  issue: string;
+  issue_sequence_id?: number;
+  project: string;
+  document_type: AgentTaskContextDocumentType;
+  path: string;
+  title: string;
+  body: string;
+  body_format: string;
+  version: number;
+  version_count: number;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTaskProgressEntry = {
+  id: string;
+  workspace: string;
+  issue: string;
+  issue_sequence_id?: number;
+  project: string;
+  entry_type: string;
+  source: string;
+  body: string;
+  summary: string;
+  author: string | null;
+  node_key: string;
+  run_id: string;
+  occurred_at: string;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTaskWorkflowNode = {
+  id: string;
+  workspace: string;
+  workflow_instance: string;
+  issue: string;
+  issue_sequence_id?: number;
+  key: string;
+  name: string;
+  node_type: string;
+  owner_type: string;
+  mode: string;
+  status: string;
+  sort_order: number;
+  main_exits: string[];
+  assigned_agent: string | null;
+  assigned_agent_key?: string;
+  assigned_agent_name?: string;
+  started_at: string | null;
+  completed_at: string | null;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTaskWorkflowInstance = {
+  id: string;
+  workspace: string;
+  issue: string;
+  issue_sequence_id?: number;
+  project: string;
+  template_key: string;
+  template_version: number;
+  name: string;
+  status: string;
+  active_node: string | null;
+  active_node_key?: string;
+  active_node_name?: string;
+  default_agent: string | null;
+  default_agent_key?: string;
+  nodes: AgentTaskWorkflowNode[];
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTaskContextSnapshot = {
+  source: string;
+  workspaceSlug: string;
+  project: {
+    id: string;
+    identifier: string;
+    name: string;
+  };
+  task: {
+    id: string;
+    identifier: string;
+    title: string;
+    state: {
+      id?: string;
+      name?: string;
+      group?: string;
+    } | null;
+  };
+  documents: {
+    prd: AgentTaskContextDocument | null;
+    status: AgentTaskContextDocument | null;
+  };
+  progressEntries: AgentTaskProgressEntry[];
+  renderedProgress: string;
+  humanComments: Array<{
+    id: string;
+    body: string;
+    html: string;
+    actor: string | null;
+    createdAt: string;
+  }>;
+  workDirectory: {
+    source: string;
+    projectId: string;
+    workItemId: string | null;
+    workDirectory: {
+      id: string;
+      key: string;
+      name: string;
+      rootPath: string;
+      worktreeStrategy: string;
+      branchPolicy: Record<string, unknown>;
+      prdPath: string;
+      statusPath: string;
+      progressPath: string;
+    } | null;
+    worker: {
+      id: string;
+      key: string;
+      name: string;
+      endpoint: string;
+    } | null;
+    mount: {
+      id: string;
+      localPath: string;
+      isDefault: boolean;
+    } | null;
+    repositories: Array<{
+      id: string;
+      key: string;
+      provider: string;
+      name: string;
+      fullName: string;
+      url: string;
+      relativePath: string;
+      defaultBranch: string;
+      worktreeStrategy: string;
+      isRequired: boolean;
+    }>;
+  };
+};
+
 export type AgentUserSecretKey = {
   id: string;
   owner: string | null;
@@ -458,6 +618,83 @@ export class AgentPlatformService extends APIService {
 
   async createRepository(workspaceSlug: string, payload: Partial<AgentRepository>): Promise<AgentRepository> {
     return this.create(workspaceSlug, "agent-repositories", payload);
+  }
+
+  async getTaskContextSnapshot(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    workerId?: string | null
+  ): Promise<AgentTaskContextSnapshot | null> {
+    const params = new URLSearchParams({
+      project_id: projectId,
+      work_item_id: issueId,
+    });
+    if (workerId) params.set("worker_id", workerId);
+
+    return this.get(
+      `/api/v1/workspaces/${workspaceSlug}/agent-task-context-snapshot/?${params.toString()}`,
+      {},
+      {
+        validateStatus: null,
+      }
+    )
+      .then((response) => {
+        if (response?.status === 401 || response?.status === 403 || response?.status === 404) return null;
+        if (response?.status >= 400) throw response?.data;
+        return response?.data as AgentTaskContextSnapshot;
+      })
+      .catch((error) => {
+        const agentError = error as AgentPlatformError;
+        if (
+          agentError.response?.status === 401 ||
+          agentError.response?.status === 403 ||
+          agentError.response?.status === 404
+        ) {
+          return null;
+        }
+        throw agentError.response?.data ?? error;
+      });
+  }
+
+  async listTaskWorkflowInstances(workspaceSlug: string, issueId: string): Promise<AgentTaskWorkflowInstance[]> {
+    return this.get(
+      `/api/v1/workspaces/${workspaceSlug}/agent-task-workflow-instances/?issue_id=${encodeURIComponent(issueId)}`,
+      {},
+      { validateStatus: null }
+    )
+      .then((response) => {
+        if (response?.status === 401 || response?.status === 403) return [];
+        if (response?.status >= 400) throw response?.data;
+        return unwrapList<AgentTaskWorkflowInstance>(response?.data);
+      })
+      .catch((error) => {
+        const agentError = error as AgentPlatformError;
+        if (agentError.response?.status === 401 || agentError.response?.status === 403) return [];
+        throw agentError.response?.data ?? error;
+      });
+  }
+
+  async createTaskContextDocument(
+    workspaceSlug: string,
+    payload: Partial<AgentTaskContextDocument>
+  ): Promise<AgentTaskContextDocument> {
+    return this.create(workspaceSlug, "agent-task-context-documents", payload);
+  }
+
+  async updateTaskContextDocument(
+    workspaceSlug: string,
+    documentId: string,
+    payload: Partial<AgentTaskContextDocument>
+  ): Promise<AgentTaskContextDocument> {
+    return this.update(workspaceSlug, "agent-task-context-documents", documentId, payload);
+  }
+
+  async createTaskProgressEntry(
+    workspaceSlug: string,
+    payload: Partial<AgentTaskProgressEntry>
+  ): Promise<AgentTaskProgressEntry> {
+    return this.create(workspaceSlug, "agent-task-progress-entries", payload);
   }
 
   async createRunIntent(workspaceSlug: string, payload: AgentRunIntentPayload): Promise<AgentRunIntentResponse> {

@@ -290,6 +290,31 @@
       "click_to_downvote": "Click to downvote",
       "click_to_view_upvotes": "Click to view upvotes",
       "click_to_view_downvotes": "Click to view downvotes"
+    },
+    "task_context": {
+      "title": "Task context",
+      "description": "Agent-readable PRD, status, progress, and human context for this task.",
+      "active_node": "Active node",
+      "owner": "Owner",
+      "work_directory": "Work directory",
+      "worker": "Worker",
+      "status_title": "status.md",
+      "prd_title": "prd.md",
+      "progress_title": "progress.md",
+      "human_context": "Human context",
+      "empty_status": "No status.md yet.",
+      "empty_prd": "No prd.md yet.",
+      "empty_progress": "No progress entries yet.",
+      "empty_human_context": "No human comments yet.",
+      "progress_append_only": "Append-only execution log",
+      "progress_placeholder": "Add progress, evidence, decision, or handoff notes...",
+      "append_progress": "Append progress",
+      "progress_appended": "Progress appended.",
+      "progress_append_failed": "Progress could not be appended.",
+      "document_saved": "Task document saved.",
+      "document_save_failed": "Task document could not be saved.",
+      "unavailable": "Task context is not available for this work item.",
+      "prd_locked": "Return to Intake to edit PRD."
     }
   },
   "sub_work_item": {
