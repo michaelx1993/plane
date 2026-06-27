@@ -14,6 +14,9 @@ from plane.db.models import (
     AgentProjectWorkspace,
     AgentRepository,
     AgentRole,
+    AgentTaskContextDocument,
+    AgentTaskContextDocumentVersion,
+    AgentTaskProgressEntry,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
@@ -559,6 +562,124 @@ class AgentTaskWorkDirectoryOverrideSerializer(AgentWorkspaceScopedSerializer):
         if issue is not None and str(issue.workspace_id) != str(workspace_id):
             raise serializers.ValidationError({"issue": "Issue must belong to the current workspace."})
         self._assert_same_workspace(attrs, "work_directory", "worker_card")
+        return attrs
+
+
+class AgentTaskContextDocumentVersionSerializer(AgentWorkspaceScopedSerializer):
+    class Meta:
+        model = AgentTaskContextDocumentVersion
+        fields = [
+            "id",
+            "workspace",
+            "document",
+            "issue",
+            "document_type",
+            "version",
+            "body",
+            "body_format",
+            "change_summary",
+            "source",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "workspace",
+            "document",
+            "issue",
+            "document_type",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class AgentTaskContextDocumentSerializer(AgentWorkspaceScopedSerializer):
+    issue_sequence_id = serializers.IntegerField(source="issue.sequence_id", read_only=True)
+    project = serializers.UUIDField(source="issue.project_id", read_only=True)
+    path = serializers.SerializerMethodField(read_only=True)
+    version_count = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AgentTaskContextDocument
+        fields = [
+            "id",
+            "workspace",
+            "issue",
+            "issue_sequence_id",
+            "project",
+            "document_type",
+            "path",
+            "title",
+            "body",
+            "body_format",
+            "version",
+            "version_count",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "version", "version_count", "created_at", "updated_at"]
+        validators = []
+
+    def validate(self, attrs):
+        workspace_id = self.context.get("workspace_id")
+        issue = attrs.get("issue") or getattr(self.instance, "issue", None)
+        if issue is not None and str(issue.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError({"issue": "Issue must belong to the current workspace."})
+        document_type = attrs.get("document_type") or getattr(self.instance, "document_type", None)
+        if issue is not None and document_type is not None:
+            queryset = AgentTaskContextDocument.objects.filter(issue=issue, document_type=document_type)
+            if self.instance is not None:
+                queryset = queryset.exclude(id=self.instance.id)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {"document_type": "A task context document of this type already exists for the issue."}
+                )
+        return attrs
+
+    def get_path(self, obj):
+        return f"{obj.document_type}.md"
+
+    def get_version_count(self, obj):
+        return obj.versions.count()
+
+
+class AgentTaskProgressEntrySerializer(AgentWorkspaceScopedSerializer):
+    issue_sequence_id = serializers.IntegerField(source="issue.sequence_id", read_only=True)
+    project = serializers.UUIDField(source="issue.project_id", read_only=True)
+
+    class Meta:
+        model = AgentTaskProgressEntry
+        fields = [
+            "id",
+            "workspace",
+            "issue",
+            "issue_sequence_id",
+            "project",
+            "entry_type",
+            "source",
+            "body",
+            "summary",
+            "author",
+            "node_key",
+            "run_id",
+            "occurred_at",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        workspace_id = self.context.get("workspace_id")
+        issue = attrs.get("issue")
+        if issue is not None and str(issue.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError({"issue": "Issue must belong to the current workspace."})
+        if not (attrs.get("body") or "").strip():
+            raise serializers.ValidationError({"body": "Progress entry body is required."})
         return attrs
 
 

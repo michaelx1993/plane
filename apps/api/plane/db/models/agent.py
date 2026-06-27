@@ -7,6 +7,7 @@ import json
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from .base import BaseModel
 
@@ -50,6 +51,26 @@ OUTBOX_OPERATION_CHOICES = (
     ("create", "Create"),
     ("update", "Update"),
     ("delete", "Delete"),
+)
+
+TASK_CONTEXT_DOCUMENT_TYPE_CHOICES = (
+    ("prd", "PRD"),
+    ("status", "Status"),
+)
+
+TASK_CONTEXT_SOURCE_CHOICES = (
+    ("human", "Human"),
+    ("agent", "Agent"),
+    ("system", "System"),
+)
+
+TASK_PROGRESS_ENTRY_TYPE_CHOICES = (
+    ("progress", "Progress"),
+    ("decision", "Decision"),
+    ("evidence", "Evidence"),
+    ("validation", "Validation"),
+    ("handoff", "Handoff"),
+    ("feedback", "Feedback"),
 )
 
 
@@ -550,6 +571,135 @@ class AgentTaskWorkDirectoryOverride(BaseModel):
 
     def __str__(self):
         return f"{self.issue_id}:{self.work_directory_id}"
+
+
+class AgentTaskContextDocument(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_context_documents",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_context_documents",
+    )
+    document_type = models.CharField(max_length=40, choices=TASK_CONTEXT_DOCUMENT_TYPE_CHOICES)
+    title = models.CharField(max_length=255, blank=True)
+    body = models.TextField(blank=True)
+    body_format = models.CharField(max_length=40, default="markdown")
+    version = models.PositiveIntegerField(default=1)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_task_context_documents"
+        ordering = ("issue", "document_type")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue", "document_type"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_task_context_document_unique_issue_type",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.issue.workspace
+        if not self.title:
+            self.title = f"{self.document_type}.md"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.document_type}@{self.version}"
+
+
+class AgentTaskContextDocumentVersion(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_context_document_versions",
+    )
+    document = models.ForeignKey(
+        "db.AgentTaskContextDocument",
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_context_document_versions",
+    )
+    document_type = models.CharField(max_length=40, choices=TASK_CONTEXT_DOCUMENT_TYPE_CHOICES)
+    version = models.PositiveIntegerField()
+    body = models.TextField(blank=True)
+    body_format = models.CharField(max_length=40, default="markdown")
+    change_summary = models.TextField(blank=True)
+    source = models.CharField(max_length=40, choices=TASK_CONTEXT_SOURCE_CHOICES, default="human")
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "agent_task_context_document_versions"
+        ordering = ("document", "-version")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "version"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="agent_task_context_document_version_unique",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.document.workspace
+        self.issue = self.document.issue
+        self.document_type = self.document.document_type
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.document_id}@{self.version}"
+
+
+class AgentTaskProgressEntry(BaseModel):
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="agent_task_progress_entries",
+    )
+    issue = models.ForeignKey(
+        "db.Issue",
+        on_delete=models.CASCADE,
+        related_name="agent_progress_entries",
+    )
+    entry_type = models.CharField(max_length=40, choices=TASK_PROGRESS_ENTRY_TYPE_CHOICES, default="progress")
+    source = models.CharField(max_length=40, choices=TASK_CONTEXT_SOURCE_CHOICES, default="human")
+    body = models.TextField()
+    summary = models.CharField(max_length=255, blank=True)
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="agent_task_progress_entries",
+        null=True,
+        blank=True,
+    )
+    node_key = models.CharField(max_length=120, blank=True)
+    run_id = models.CharField(max_length=120, blank=True)
+    occurred_at = models.DateTimeField(default=timezone.now)
+    metadata = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "agent_task_progress_entries"
+        ordering = ("issue", "occurred_at", "created_at")
+        indexes = [
+            models.Index(fields=["workspace", "issue", "occurred_at"]),
+            models.Index(fields=["workspace", "source"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.workspace = self.issue.workspace
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.issue_id}:{self.entry_type}:{self.occurred_at.isoformat()}"
 
 
 class AgentConfigOutbox(models.Model):

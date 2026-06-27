@@ -21,6 +21,11 @@ from plane.api.views import (
     AgentRoleDetailAPIEndpoint,
     AgentRoleListCreateAPIEndpoint,
     AgentRunIntentAPIEndpoint,
+    AgentTaskContextDocumentDetailAPIEndpoint,
+    AgentTaskContextDocumentListCreateAPIEndpoint,
+    AgentTaskContextDocumentVersionListAPIEndpoint,
+    AgentTaskContextSnapshotAPIEndpoint,
+    AgentTaskProgressEntryListCreateAPIEndpoint,
     AgentTaskWorkDirectoryOverrideDetailAPIEndpoint,
     AgentTaskWorkDirectoryOverrideListCreateAPIEndpoint,
     AgentUserAgentDetailAPIEndpoint,
@@ -158,6 +163,31 @@ urlpatterns = [
         "workspaces/<str:slug>/agent-task-work-directory-overrides/<uuid:pk>/",
         AgentTaskWorkDirectoryOverrideDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
         name="agent-task-work-directory-override",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-context-documents/",
+        AgentTaskContextDocumentListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-task-context-document",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-context-documents/<uuid:pk>/",
+        AgentTaskContextDocumentDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="agent-task-context-document",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-context-document-versions/",
+        AgentTaskContextDocumentVersionListAPIEndpoint.as_view(http_method_names=["get"]),
+        name="agent-task-context-document-version",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-progress-entries/",
+        AgentTaskProgressEntryListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="agent-task-progress-entry",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-task-context-snapshot/",
+        AgentTaskContextSnapshotAPIEndpoint.as_view(http_method_names=["get"]),
+        name="agent-task-context-snapshot",
     ),
     path(
         "workspaces/<str:slug>/agent-work-directory-resolution/",

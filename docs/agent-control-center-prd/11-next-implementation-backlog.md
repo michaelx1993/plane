@@ -43,7 +43,7 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 
 ### PR A：Worker / Work Directory API
 
-状态：进行中。
+状态：已合入并部署到 `plane-components-v0.0.24`。
 
 目标：
 
@@ -77,6 +77,8 @@ Plane fork 的产品中心已经确定为 **Agent 托管与流程控制中心**�
 - repo-less task。
 
 ### PR B：Task Context Documents API
+
+状态：进行中。
 
 目标：
 

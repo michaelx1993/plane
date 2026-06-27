@@ -25,6 +25,9 @@ from plane.api.serializers import (
     AgentProjectWorkspaceSerializer,
     AgentRepositorySerializer,
     AgentRoleSerializer,
+    AgentTaskContextDocumentSerializer,
+    AgentTaskContextDocumentVersionSerializer,
+    AgentTaskProgressEntrySerializer,
     AgentTaskWorkDirectoryOverrideSerializer,
     AgentUserAgentSerializer,
     AgentUserSecretKeySerializer,
@@ -42,6 +45,9 @@ from plane.db.models import (
     AgentProjectWorkspace,
     AgentRepository,
     AgentRole,
+    AgentTaskContextDocument,
+    AgentTaskContextDocumentVersion,
+    AgentTaskProgressEntry,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
@@ -396,6 +402,145 @@ class AgentTaskWorkDirectoryOverrideDetailAPIEndpoint(AgentConfigSourceDetailAPI
         return super().get_queryset().select_related("issue", "work_directory", "worker_card")
 
 
+class AgentTaskContextDocumentListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentTaskContextDocument
+    serializer_class = AgentTaskContextDocumentSerializer
+    entity_type = "agent_task_context_document"
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("issue", "issue__project").prefetch_related("versions")
+        issue_id = self.request.GET.get("issue_id")
+        document_type = self.request.GET.get("document_type")
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if document_type:
+            queryset = queryset.filter(document_type=document_type)
+        return queryset
+
+    def post(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        serializer = self.serializer_class(data=request.data, context={"workspace_id": workspace.id})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            instance = serializer.save(workspace=workspace)
+            _record_task_context_document_version(instance, "Created task context document.", request)
+            _record_task_context_progress(
+                instance.issue,
+                f"Created {instance.document_type}.md.",
+                request,
+                entry_type="progress",
+                source="system",
+            )
+            _record_agent_config_outbox(workspace, self.entity_type, "create", instance, self.serializer_class)
+        return Response(
+            self.serializer_class(instance, context={"workspace_id": workspace.id}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AgentTaskContextDocumentDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentTaskContextDocument
+    serializer_class = AgentTaskContextDocumentSerializer
+    entity_type = "agent_task_context_document"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("issue", "issue__project").prefetch_related("versions")
+
+    def patch(self, request, slug, pk):
+        workspace = Workspace.objects.get(slug=slug)
+        instance = self.get_object()
+        serializer = self.serializer_class(
+            instance,
+            data=request.data,
+            partial=True,
+            context={"workspace_id": workspace.id},
+        )
+        serializer.is_valid(raise_exception=True)
+        should_version = any(field in request.data for field in ["body", "body_format", "title"])
+        with transaction.atomic():
+            if should_version:
+                serializer.validated_data["version"] = instance.version + 1
+            instance = serializer.save()
+            if should_version:
+                _record_task_context_document_version(instance, "Updated task context document.", request)
+                _record_task_context_progress(
+                    instance.issue,
+                    f"Updated {instance.document_type}.md to version {instance.version}.",
+                    request,
+                    entry_type="progress",
+                    source="system",
+                )
+            _record_agent_config_outbox(workspace, self.entity_type, "update", instance, self.serializer_class)
+        return Response(self.serializer_class(instance, context={"workspace_id": workspace.id}).data)
+
+
+class AgentTaskContextDocumentVersionListAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+    use_read_replica = True
+
+    def get(self, request, slug):
+        queryset = AgentTaskContextDocumentVersion.objects.filter(workspace__slug=slug).select_related(
+            "document",
+            "issue",
+        )
+        document_id = request.GET.get("document_id")
+        issue_id = request.GET.get("issue_id")
+        document_type = request.GET.get("document_type")
+        if document_id:
+            queryset = queryset.filter(document_id=document_id)
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if document_type:
+            queryset = queryset.filter(document_type=document_type)
+        queryset = queryset.order_by(request.GET.get("order_by", "-version"))
+        return self.paginate(
+            request=request,
+            queryset=queryset,
+            on_results=lambda results: AgentTaskContextDocumentVersionSerializer(results, many=True).data,
+        )
+
+
+class AgentTaskProgressEntryListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentTaskProgressEntry
+    serializer_class = AgentTaskProgressEntrySerializer
+    entity_type = "agent_task_progress_entry"
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("issue", "issue__project", "author")
+        issue_id = self.request.GET.get("issue_id")
+        source = self.request.GET.get("source")
+        entry_type = self.request.GET.get("entry_type")
+        if issue_id:
+            queryset = queryset.filter(issue_id=issue_id)
+        if source:
+            queryset = queryset.filter(source=source)
+        if entry_type:
+            queryset = queryset.filter(entry_type=entry_type)
+        return queryset
+
+
+class AgentTaskContextSnapshotAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+    use_read_replica = True
+
+    def get(self, request, slug):
+        project_id = request.GET.get("project_id")
+        work_item_id = request.GET.get("work_item_id")
+        worker_id = request.GET.get("worker_id")
+        if not project_id or not work_item_id:
+            return Response(
+                {"error": "project_id and work_item_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project = get_object_or_404(Project, id=project_id, workspace__slug=slug)
+        issue = _resolve_agent_run_issue(slug, project.id, str(work_item_id))
+        work_directory_context = _resolve_work_directory_context(slug, project, issue, worker_id)
+        return Response(_build_task_context_snapshot_payload(slug, project, issue, work_directory_context))
+
+
 class AgentWorkDirectoryResolutionAPIEndpoint(BaseAPIView):
     permission_classes = [WorkspaceEntityPermission]
     authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
@@ -732,6 +877,109 @@ def _build_work_directory_context_payload(selected):
             }
         )
     return payload
+
+
+def _record_task_context_document_version(document, change_summary, request):
+    return AgentTaskContextDocumentVersion.objects.create(
+        workspace=document.workspace,
+        document=document,
+        issue=document.issue,
+        document_type=document.document_type,
+        version=document.version,
+        body=document.body,
+        body_format=document.body_format,
+        change_summary=change_summary,
+        source=_agent_task_context_request_source(request),
+    )
+
+
+def _record_task_context_progress(issue, body, request, entry_type="progress", source=None):
+    user = getattr(request, "user", None)
+    author = user if getattr(user, "is_authenticated", False) else None
+    progress = AgentTaskProgressEntry.objects.create(
+        workspace=issue.workspace,
+        issue=issue,
+        entry_type=entry_type,
+        source=source or _agent_task_context_request_source(request),
+        body=body,
+        author=author,
+    )
+    AgentConfigOutbox.objects.create(
+        workspace=issue.workspace,
+        entity_type="agent_task_progress_entry",
+        entity_id=progress.id,
+        operation="create",
+        payload=_json_payload(
+            AgentTaskProgressEntrySerializer(progress, context={"workspace_id": issue.workspace_id}).data
+        ),
+    )
+    return progress
+
+
+def _agent_task_context_request_source(request):
+    return request.data.get("source") if getattr(request, "data", None) and request.data.get("source") else "human"
+
+
+def _build_task_context_snapshot_payload(slug, project, issue, work_directory_context):
+    documents = {
+        document.document_type: document
+        for document in AgentTaskContextDocument.objects.filter(
+            workspace__slug=slug,
+            issue=issue,
+            is_active=True,
+        ).prefetch_related("versions")
+    }
+    progress_entries = list(
+        AgentTaskProgressEntry.objects.filter(
+            workspace__slug=slug,
+            issue=issue,
+            is_active=True,
+        )
+        .select_related("author")
+        .order_by("occurred_at", "created_at")
+    )
+    human_comments = list(issue.issue_comments.filter(access="INTERNAL").select_related("actor").order_by("created_at"))
+    context = {"workspace_id": issue.workspace_id}
+    rendered_progress = "\n\n".join(
+        f"## {entry.occurred_at.isoformat()} [{entry.source}/{entry.entry_type}]\n\n{entry.body}"
+        for entry in progress_entries
+    )
+    return {
+        "source": "plane",
+        "workspaceSlug": slug,
+        "project": {
+            "id": str(project.id),
+            "identifier": project.identifier,
+            "name": project.name,
+        },
+        "task": {
+            "id": str(issue.id),
+            "identifier": f"{project.identifier}-{issue.sequence_id}",
+            "title": issue.name,
+            "state": _agent_run_workflow_state(issue.state),
+        },
+        "documents": {
+            "prd": AgentTaskContextDocumentSerializer(documents["prd"], context=context).data
+            if "prd" in documents
+            else None,
+            "status": AgentTaskContextDocumentSerializer(documents["status"], context=context).data
+            if "status" in documents
+            else None,
+        },
+        "progressEntries": AgentTaskProgressEntrySerializer(progress_entries, many=True, context=context).data,
+        "renderedProgress": rendered_progress,
+        "humanComments": [
+            {
+                "id": str(comment.id),
+                "body": comment.comment_stripped,
+                "html": comment.comment_html,
+                "actor": str(comment.actor_id) if comment.actor_id else None,
+                "createdAt": comment.created_at.isoformat(),
+            }
+            for comment in human_comments
+        ],
+        "workDirectory": _build_work_directory_context_payload(work_directory_context),
+    }
 
 
 def _clean_agent_run_string_list(value):

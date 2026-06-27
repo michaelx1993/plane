@@ -154,6 +154,13 @@ API contract：
 - `progress.md` append-only。
 - Human comments / corrections 进入 Agent 可读 context。
 
+API contract：
+
+- Task Context Documents endpoint：保存 task 当前 `prd.md` / `status.md` 文档。
+- Task Context Document Versions endpoint：按 task/document 返回历史版本，便于审计 PRD/status 变更。
+- Task Progress Entries endpoint：追加 `progress.md` entry；Phase 1 不提供 update/delete，保持 append-only。
+- Task Context Snapshot endpoint：按 project + work item 返回 Agent 可读 context snapshot，包含 PRD/status/progress/human comments/work directory。
+
 验收：
 
 - Task Detail 首屏展示 PRD、status、progress。
