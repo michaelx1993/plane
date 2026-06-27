@@ -13,6 +13,9 @@ from plane.db.models import (
     AgentPromptVersion,
     AgentProjectDefault,
     AgentRepository,
+    AgentTaskContextDocument,
+    AgentTaskContextDocumentVersion,
+    AgentTaskProgressEntry,
     AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentWorkDirectory,
@@ -20,6 +23,7 @@ from plane.db.models import (
     AgentWorkerCard,
     AgentWorkerMount,
     Issue,
+    IssueComment,
     Project,
     ProjectMember,
 )
@@ -759,6 +763,239 @@ class TestAgentConfigAPI:
                 "isRequired": True,
             }
         ]
+
+    @pytest.mark.django_db
+    def test_task_context_documents_version_and_progress_entries(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+    ):
+        project = Project.objects.create(
+            name="Context Project",
+            identifier="CTX",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Write task PRD",
+            workspace=workspace,
+            project=project,
+        )
+
+        prd_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-documents/",
+            {
+                "issue": str(issue.id),
+                "document_type": "prd",
+                "title": "prd.md",
+                "body": "# PRD\n\nBuild the task context API.",
+            },
+            format="json",
+        )
+        status_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-documents/",
+            {
+                "issue": str(issue.id),
+                "document_type": "status",
+                "title": "status.md",
+                "body": "# Status\n\nIntake.",
+            },
+            format="json",
+        )
+
+        assert prd_response.status_code == status.HTTP_201_CREATED, prd_response.data
+        assert status_response.status_code == status.HTTP_201_CREATED, status_response.data
+        assert prd_response.data["path"] == "prd.md"
+        assert prd_response.data["version"] == 1
+
+        duplicate_response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-documents/",
+            {
+                "issue": str(issue.id),
+                "document_type": "prd",
+                "body": "duplicate",
+            },
+            format="json",
+        )
+        assert duplicate_response.status_code == status.HTTP_400_BAD_REQUEST
+
+        update_response = api_key_client.patch(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-documents/{prd_response.data['id']}/",
+            {"body": "# PRD\n\nBuild the task context API with tests."},
+            format="json",
+        )
+        assert update_response.status_code == status.HTTP_200_OK, update_response.data
+        assert update_response.data["version"] == 2
+
+        versions_response = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-document-versions/"
+            f"?document_id={prd_response.data['id']}"
+        )
+        assert versions_response.status_code == status.HTTP_200_OK, versions_response.data
+        assert [item["version"] for item in versions_response.data["results"]] == [2, 1]
+        assert AgentTaskContextDocument.objects.get(id=prd_response.data["id"]).version == 2
+        assert AgentTaskContextDocumentVersion.objects.filter(document_id=prd_response.data["id"]).count() == 2
+        assert AgentTaskProgressEntry.objects.filter(issue=issue, source="system").count() == 3
+
+    @pytest.mark.django_db
+    def test_task_progress_entries_are_append_only_api(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+    ):
+        project = Project.objects.create(
+            name="Progress Project",
+            identifier="PRG",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Append progress",
+            workspace=workspace,
+            project=project,
+        )
+
+        response = api_key_client.post(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-progress-entries/",
+            {
+                "issue": str(issue.id),
+                "entry_type": "validation",
+                "source": "agent",
+                "body": "Ran contract tests.",
+                "summary": "Tests passed",
+                "node_key": "development",
+                "run_id": "run-1",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED, response.data
+        assert response.data["body"] == "Ran contract tests."
+        assert response.data["entry_type"] == "validation"
+
+        list_response = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-progress-entries/?issue_id={issue.id}"
+        )
+        assert list_response.status_code == status.HTTP_200_OK, list_response.data
+        assert list_response.data["results"][0]["run_id"] == "run-1"
+
+        patch_response = api_key_client.patch(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-progress-entries/{response.data['id']}/",
+            {"body": "mutated"},
+            format="json",
+        )
+        assert patch_response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.django_db
+    def test_task_context_snapshot_returns_documents_progress_comments_and_work_directory(
+        self,
+        api_key_client,
+        workspace,
+        create_user,
+    ):
+        project = Project.objects.create(
+            name="Snapshot Project",
+            identifier="SNP",
+            workspace=workspace,
+            created_by=create_user,
+            updated_by=create_user,
+        )
+        ProjectMember.objects.create(project=project, member=create_user, role=20)
+        issue = Issue.objects.create(
+            name="Render agent context",
+            workspace=workspace,
+            project=project,
+        )
+        worker = AgentWorkerCard.objects.create(workspace=workspace, key="mac-studio", name="Mac Studio")
+        work_directory = AgentWorkDirectory.objects.create(
+            workspace=workspace,
+            key="agent-platform",
+            name="Agent Platform",
+            root_path="/Users/a/aiworkspace/agent-platform",
+            default_worker_card=worker,
+        )
+        repository = AgentRepository.objects.create(
+            workspace=workspace,
+            key="plane",
+            provider="github",
+            scm_provider="github",
+            owner="michaelx1993",
+            name="plane",
+            full_name="michaelx1993/plane",
+            url="https://github.com/michaelx1993/plane",
+            clone_url="git@github.com:michaelx1993/plane.git",
+            default_branch="preview",
+        )
+        AgentWorkDirectoryRepository.objects.create(
+            workspace=workspace,
+            work_directory=work_directory,
+            repository=repository,
+            relative_path="./plane",
+        )
+        AgentWorkerMount.objects.create(
+            workspace=workspace,
+            work_directory=work_directory,
+            worker_card=worker,
+            local_path="/Users/a/aiworkspace/agent-platform",
+        )
+        AgentProjectDefault.objects.create(
+            workspace=workspace,
+            project=project,
+            work_directory=work_directory,
+            worker_card=worker,
+        )
+        AgentTaskContextDocument.objects.create(
+            workspace=workspace,
+            issue=issue,
+            document_type="prd",
+            title="prd.md",
+            body="# PRD\n\nBuild snapshot.",
+        )
+        AgentTaskContextDocument.objects.create(
+            workspace=workspace,
+            issue=issue,
+            document_type="status",
+            title="status.md",
+            body="# Status\n\nReady.",
+        )
+        AgentTaskProgressEntry.objects.create(
+            workspace=workspace,
+            issue=issue,
+            entry_type="progress",
+            source="agent",
+            body="Implemented snapshot serializer.",
+            run_id="run-ctx",
+        )
+        IssueComment.objects.create(
+            workspace=workspace,
+            project=project,
+            issue=issue,
+            actor=create_user,
+            comment_html="<p>Use the Plane DB as source of truth.</p>",
+            created_by=create_user,
+            updated_by=create_user,
+        )
+
+        response = api_key_client.get(
+            f"/api/v1/workspaces/{workspace.slug}/agent-task-context-snapshot/"
+            f"?project_id={project.id}&work_item_id={issue.id}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        assert response.data["task"]["identifier"] == f"{project.identifier}-{issue.sequence_id}"
+        assert response.data["documents"]["prd"]["body"] == "# PRD\n\nBuild snapshot."
+        assert response.data["documents"]["status"]["path"] == "status.md"
+        assert response.data["progressEntries"][0]["run_id"] == "run-ctx"
+        assert "Implemented snapshot serializer." in response.data["renderedProgress"]
+        assert response.data["humanComments"][0]["body"] == "Use the Plane DB as source of truth."
+        assert response.data["workDirectory"]["workDirectory"]["key"] == "agent-platform"
+        assert response.data["workDirectory"]["repositories"][0]["relativePath"] == "./plane"
 
     @pytest.mark.django_db
     def test_agent_run_intent_forwards_selected_runtime_context(
