@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "Yapışkan Notlar",
     "your_work": "Çalışmalarınız",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "Projeler",
     "pages": "Sayfalar",
     "new_work_item": "Yeni iş öğesi",

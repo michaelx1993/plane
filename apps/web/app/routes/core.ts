@@ -59,8 +59,17 @@ export const coreRoutes: RouteConfigEntry[] = [
         // WORKSPACE LEVEL ROUTES
         // --------------------------------------------------------------------
 
-        // Workspace Home
-        route(":workspaceSlug", "./(all)/[workspaceSlug]/(projects)/page.tsx"),
+        // Agent Control Center
+        route(":workspaceSlug", "./(all)/[workspaceSlug]/(projects)/agent-control-center/home/page.tsx"),
+        route(":workspaceSlug/tasks", "./(all)/[workspaceSlug]/(projects)/agent-control-center/tasks/page.tsx"),
+        route(":workspaceSlug/agents", "./(all)/[workspaceSlug]/(projects)/agent-control-center/agents/page.tsx"),
+        route(":workspaceSlug/prompts", "./(all)/[workspaceSlug]/(projects)/agent-control-center/prompts/page.tsx"),
+        route(":workspaceSlug/workflows", "./(all)/[workspaceSlug]/(projects)/agent-control-center/workflows/page.tsx"),
+        route(":workspaceSlug/workers", "./(all)/[workspaceSlug]/(projects)/agent-control-center/workers/page.tsx"),
+        route(
+          ":workspaceSlug/work-directories",
+          "./(all)/[workspaceSlug]/(projects)/agent-control-center/work-directories/page.tsx"
+        ),
 
         // Active Cycles
         layout("./(all)/[workspaceSlug]/(projects)/active-cycles/layout.tsx", [

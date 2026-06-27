@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "Notițe",
     "your_work": "Munca ta",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "Proiecte",
     "pages": "Documentație",
     "new_work_item": "Activitate nouă",

@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "Стикеры",
     "your_work": "Ваша работа",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "Проекты",
     "pages": "Страницы",
     "new_work_item": "Новый рабочий элемент",

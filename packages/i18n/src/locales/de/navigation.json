@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "Notizen",
     "your_work": "Ihre Arbeit",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "Projekte",
     "pages": "Seiten",
     "new_work_item": "Neues Arbeitselement",

@@ -8,8 +8,8 @@ import React from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { Disclosure, Transition } from "@headlessui/react";
+import { Bot, FileText, FolderGit2, HardDrive, ListChecks, Workflow } from "lucide-react";
 // plane imports
-import { AnalyticsIcon, CycleIcon, ProjectIcon, ViewsIcon } from "@plane/propel/icons";
 import { EUserWorkspaceRoles } from "@plane/types";
 // hooks
 import useLocalStorage from "@/hooks/use-local-storage";
@@ -27,32 +27,46 @@ export const SidebarWorkspaceMenu = observer(function SidebarWorkspaceMenu() {
 
   const SIDEBAR_WORKSPACE_MENU_ITEMS = [
     {
-      key: "projects",
-      labelTranslationKey: "sidebar.projects",
-      href: `/${workspaceSlug}/projects/`,
+      key: "tasks",
+      labelTranslationKey: "sidebar.tasks",
+      href: `/${workspaceSlug}/tasks/`,
       access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
-      Icon: ProjectIcon,
+      Icon: ListChecks,
     },
     {
-      key: "views",
-      labelTranslationKey: "sidebar.views",
-      href: `/${workspaceSlug}/workspace-views/all-issues/`,
-      access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
-      Icon: ViewsIcon,
-    },
-    {
-      key: "active-cycles",
-      labelTranslationKey: "sidebar.cycles",
-      href: `/${workspaceSlug}/active-cycles/`,
+      key: "agents",
+      labelTranslationKey: "sidebar.agents",
+      href: `/${workspaceSlug}/agents/`,
       access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
-      Icon: CycleIcon,
+      Icon: Bot,
     },
     {
-      key: "analytics",
-      labelTranslationKey: "sidebar.analytics",
-      href: `/${workspaceSlug}/analytics/`,
+      key: "prompts",
+      labelTranslationKey: "sidebar.prompts",
+      href: `/${workspaceSlug}/prompts/`,
       access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
-      Icon: AnalyticsIcon,
+      Icon: FileText,
+    },
+    {
+      key: "workflows",
+      labelTranslationKey: "sidebar.workflows",
+      href: `/${workspaceSlug}/workflows/`,
+      access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+      Icon: Workflow,
+    },
+    {
+      key: "workers",
+      labelTranslationKey: "sidebar.workers",
+      href: `/${workspaceSlug}/workers/`,
+      access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+      Icon: HardDrive,
+    },
+    {
+      key: "work-directories",
+      labelTranslationKey: "sidebar.work_directories",
+      href: `/${workspaceSlug}/work-directories/`,
+      access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+      Icon: FolderGit2,
     },
   ];
 

@@ -12,9 +12,13 @@ const appRoot = path.resolve(import.meta.dirname, "../../..");
 const repoRoot = path.resolve(appRoot, "../..");
 
 const routeSource = read("apps/web/app/routes/core.ts");
+const workspaceMenuSource = read("apps/web/core/components/workspace/sidebar/workspace-menu.tsx");
 const workspaceSettingsSource = read("packages/constants/src/settings/workspace.ts");
 const projectSettingsSource = read("packages/constants/src/settings/project.ts");
 const workspacePageSource = read("apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/agents/page.tsx");
+const workspaceMembersPageSource = read(
+  "apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/members/page.tsx"
+);
 const projectPageSource = read(
   "apps/web/app/(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/agents/page.tsx"
 );
@@ -24,14 +28,55 @@ const serviceSource = read("apps/web/core/services/agent-platform.service.ts");
 
 assert.ok(routeSource.includes(":workspaceSlug/settings/agents"), "workspace Agent Library route should be registered");
 assert.ok(
+  routeSource.includes(
+    'route(":workspaceSlug", "./(all)/[workspaceSlug]/(projects)/agent-control-center/home/page.tsx")'
+  ),
+  "workspace root should open the Agent Control Center Tasks page"
+);
+for (const routePath of [
+  ":workspaceSlug/tasks",
+  ":workspaceSlug/agents",
+  ":workspaceSlug/prompts",
+  ":workspaceSlug/workflows",
+  ":workspaceSlug/workers",
+  ":workspaceSlug/work-directories",
+]) {
+  assert.ok(routeSource.includes(routePath), `${routePath} Agent Control Center route should be registered`);
+}
+assert.ok(
   routeSource.includes(":workspaceSlug/settings/projects/:projectId/agents"),
   "project Agents route should be registered"
+);
+for (const sidebarKey of [
+  "sidebar.tasks",
+  "sidebar.agents",
+  "sidebar.prompts",
+  "sidebar.workflows",
+  "sidebar.workers",
+  "sidebar.work_directories",
+]) {
+  assert.ok(workspaceMenuSource.includes(sidebarKey), `${sidebarKey} should be exposed in the workspace sidebar`);
+}
+assert.ok(
+  !workspaceMenuSource.includes("sidebar.views") &&
+    !workspaceMenuSource.includes("sidebar.cycles") &&
+    !workspaceMenuSource.includes("sidebar.analytics"),
+  "workspace sidebar should prioritize Agent Control Center entries instead of Plane views, cycles, and analytics"
 );
 assert.ok(
   workspaceSettingsSource.includes('key: "agents"') &&
     workspaceSettingsSource.includes("href: `/settings/agents`") &&
     workspaceSettingsSource.includes('WORKSPACE_SETTINGS["agents"]'),
   "workspace settings should expose an Agent Library navigation item"
+);
+assert.ok(
+  !workspaceSettingsSource.includes('WORKSPACE_SETTINGS["billing-and-plans"],') &&
+    !workspaceSettingsSource.includes('WORKSPACE_SETTINGS["export"],'),
+  "workspace settings sidebar should not expose billing or export entries"
+);
+assert.ok(
+  !workspaceMembersPageSource.includes("BillingActionsButton"),
+  "workspace members page should not expose billing actions"
 );
 assert.ok(
   projectSettingsSource.includes('key: "agents"') &&
@@ -103,9 +148,13 @@ assert.ok(
 );
 
 for (const locale of ["en", "zh-CN", "zh-TW"]) {
+  const navigationMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/navigation.json`));
   const workspaceMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/workspace-settings.json`));
   const projectMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/project-settings.json`));
   const workItemMessages = JSON.parse(read(`packages/i18n/src/locales/${locale}/work-item.json`));
+  for (const key of ["tasks", "agents", "prompts", "workflows", "workers", "work_directories"]) {
+    assert.ok(navigationMessages.sidebar[key], `${locale} sidebar.${key} is required`);
+  }
   assert.ok(workspaceMessages.workspace_settings.settings.agents.title, `${locale} workspace agent title is required`);
   assert.ok(projectMessages.project_settings.agents.label, `${locale} project agent label is required`);
   assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
