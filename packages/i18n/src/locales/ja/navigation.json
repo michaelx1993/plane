@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "付箋",
     "your_work": "あなたの作業",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "プロジェクト",
     "pages": "ページ",
     "new_work_item": "新規作業項目",

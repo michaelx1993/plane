@@ -9,6 +9,12 @@
   "sidebar": {
     "stickies": "Ghi chú nhanh",
     "your_work": "Công việc của tôi",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "prompts": "Prompts",
+    "workflows": "Workflows",
+    "workers": "Workers",
+    "work_directories": "Work directories",
     "projects": "Dự án",
     "pages": "Trang",
     "new_work_item": "Mục công việc mới",
