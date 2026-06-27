@@ -2,7 +2,7 @@
 
 Status: Draft for execution
 Last updated: 2026-06-27
-Baseline: `plane-components-v0.0.27`
+Baseline: `plane-components-v0.0.28`
 
 本文件把 PRD、后端底座、当前 UI PR 和后续开发顺序收敛成一份可执行路线图。目标不是继续补 Plane 的传统项目管理能力，而是把它重构成 **Agent 托管与流程控制中心**。
 
@@ -10,7 +10,7 @@ Baseline: `plane-components-v0.0.27`
 
 已完成并部署到 MBP 的基线：
 
-- `0.0.27` 已包含 Agent / Prompt API、Worker / Work Directory API、Task Context Documents API、Workflow Instance / Human Gate API。
+- `0.0.28` 已包含 Agent / Prompt API、Worker / Work Directory API、Task Context Documents API、Workflow Instance / Human Gate API，以及可用的 Agent / Prompt Library UI。
 - Plane native state 已被定位为 workflow active node 的派生兼容字段，不是业务主状态。
 - Task Context 的 `prd.md`、`status.md`、`progress.md` 在 Phase 1 以 Plane DB 为 source of truth。
 - Work Directory 与 Task Context Directory 已拆分：前者是代码执行目录，后者是任务上下文目录。
@@ -18,12 +18,10 @@ Baseline: `plane-components-v0.0.27`
 
 正在进行：
 
-- PR #42：Agent / Prompt Library UI 可用化。
-  - Agents / Prompts 页面接真实 workspace snapshot API。
-  - 支持 Agent create / edit。
-  - 支持 Prompt create / edit / archive / create version。
-  - 支持 Agent prompt stack binding。
-  - 已补中英文文案与前端测试，CI 正在运行。
+- PR B：Workers / Work Directories UI。
+  - Workers / Work Directories 主导航页面接真实 Worker Card、Work Directory、Repository、Mount API。
+  - Project Settings 可配置默认 Work Directory / Worker。
+  - Task 的 Agent Run 面板提供 Work Directory override 最小入口。
 
 ## 改造总目标
 
@@ -177,18 +175,15 @@ Baseline: `plane-components-v0.0.27`
 
 ### PR A：Agent / Prompt Library UI
 
-状态：进行中，PR #42。
+状态：已完成，PR #42 已合入并随 `plane-components-v0.0.28` 部署到 MBP。
 
 完成后要做：
 
-- 等 CI 全绿。
-- 合入 `preview`。
-- tag 下一个 `plane-components-v*`。
-- 发布镜像。
-- 升级 MBP。
-- 用真实浏览器验证 Agents / Prompts 页面能创建和编辑。
+- 继续在真实环境体验 Agents / Prompts 页面，发现交互问题后单独修。
 
 ### PR B：Workers / Work Directories UI
+
+状态：当前分支开发中。
 
 范围：
 
@@ -196,7 +191,7 @@ Baseline: `plane-components-v0.0.27`
 - Work Directory list / detail。
 - Repository / mount 管理。
 - Project default Work Directory。
-- Task override 入口的最小 UI。
+- Task override 入口的最小 UI：先放在 Task 的 Agent Run 面板，真正 Task Detail shell 落地后再迁到任务控制台。
 
 不做：
 

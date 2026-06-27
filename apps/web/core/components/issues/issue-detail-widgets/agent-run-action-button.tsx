@@ -19,6 +19,7 @@ import {
   type AgentPromptBinding,
   type AgentPromptVersion,
   type AgentUserAgent,
+  type AgentWorkDirectory,
   type AgentWorkerCard,
 } from "@/services/agent-platform.service";
 type Props = {
@@ -51,6 +52,7 @@ export function AgentRunActionButton(props: Props) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedWorkDirectoryId, setSelectedWorkDirectoryId] = useState("");
   const [selectedRepositoryId, setSelectedRepositoryId] = useState("");
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,14 +78,24 @@ export function AgentRunActionButton(props: Props) {
     () => (projectSnapshot?.repositories ?? []).filter((repository) => repository.is_active),
     [projectSnapshot?.repositories]
   );
+  const activeWorkDirectories = useMemo(
+    () => (projectSnapshot?.workDirectories ?? []).filter((directory) => directory.is_active),
+    [projectSnapshot?.workDirectories]
+  );
   const activeWorkers = useMemo(
     () => (projectSnapshot?.workerCards ?? []).filter((worker) => worker.is_active),
     [projectSnapshot?.workerCards]
   );
 
   const selectedAgent = resolveAgent(activeAgents, selectedAgentId);
-  const selectedRepository = resolveById(activeRepositories, selectedRepositoryId);
-  const selectedWorker = resolveWorker(projectSnapshot, activeWorkers, selectedWorkerId);
+  const selectedWorkDirectory = resolveWorkDirectory(projectSnapshot, activeWorkDirectories, selectedWorkDirectoryId);
+  const selectedRepository = resolveRepository(
+    projectSnapshot,
+    activeRepositories,
+    selectedRepositoryId,
+    selectedWorkDirectory
+  );
+  const selectedWorker = resolveWorker(projectSnapshot, activeWorkers, selectedWorkerId, selectedWorkDirectory);
   const promptStack = useMemo(
     () => buildPromptStack(workspaceSnapshot, selectedAgent),
     [selectedAgent, workspaceSnapshot]
@@ -107,6 +119,7 @@ export function AgentRunActionButton(props: Props) {
     workItemId: issueId,
     projectId,
     agentId: selectedAgent?.id ?? null,
+    workDirectoryId: selectedWorkDirectory?.id ?? null,
     repositoryId: selectedRepository?.id ?? null,
     workerId: selectedWorker?.id ?? null,
     targetBranch: selectedRepository?.default_branch || "default",
@@ -136,6 +149,22 @@ export function AgentRunActionButton(props: Props) {
 
     setIsSubmitting(true);
     try {
+      const taskOverride = projectSnapshot?.taskWorkDirectoryOverrides.find((override) => override.issue === issueId);
+      if (selectedWorkDirectory) {
+        const overridePayload = {
+          issue: issueId,
+          work_directory: selectedWorkDirectory.id,
+          worker_card: selectedWorker.id,
+          target_branch: selectedRepository.default_branch || "default",
+          is_active: true,
+        };
+        if (taskOverride) {
+          await agentPlatformService.updateTaskWorkDirectoryOverride(workspaceSlug, taskOverride.id, overridePayload);
+        } else {
+          await agentPlatformService.createTaskWorkDirectoryOverride(workspaceSlug, overridePayload);
+        }
+      }
+
       const response = await agentPlatformService.createRunIntent(workspaceSlug, {
         project_id: projectId,
         work_item_id: issueId,
@@ -198,12 +227,18 @@ export function AgentRunActionButton(props: Props) {
           </div>
         ) : (
           <div className="grid gap-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <SelectField
                 label={t("issue.agent_run.agent")}
                 onChange={setSelectedAgentId}
                 options={activeAgents.map((agent) => ({ label: agent.name, value: agent.id }))}
                 value={selectedAgent?.id ?? ""}
+              />
+              <SelectField
+                label={t("project_settings.agents.work_directory")}
+                onChange={setSelectedWorkDirectoryId}
+                options={activeWorkDirectories.map((directory) => ({ label: directory.name, value: directory.id }))}
+                value={selectedWorkDirectory?.id ?? ""}
               />
               <SelectField
                 label={t("issue.agent_run.repository")}
@@ -222,8 +257,12 @@ export function AgentRunActionButton(props: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <SummaryCell label={t("issue.agent_run.model")} value={selectedAgent?.model || "-"} />
+              <SummaryCell
+                label={t("project_settings.agents.work_directory")}
+                value={selectedWorkDirectory?.name || "-"}
+              />
               <SummaryCell
                 label={t("issue.agent_run.target_branch")}
                 value={selectedRepository?.default_branch || "default"}
@@ -334,12 +373,59 @@ function resolveAgent(agents: AgentUserAgent[], selectedAgentId: string): AgentU
 function resolveWorker(
   snapshot: AgentPlatformProjectSnapshot | undefined,
   workers: AgentWorkerCard[],
-  selectedWorkerId: string
+  selectedWorkerId: string,
+  selectedWorkDirectory: AgentWorkDirectory | undefined
 ): AgentWorkerCard | undefined {
   const selected = resolveById(workers, selectedWorkerId);
   if (selected) return selected;
+  const taskOverrideWorkerId = snapshot?.taskWorkDirectoryOverrides.find((override) => override.is_active)?.worker_card;
   const projectWorkspaceWorkerId = snapshot?.projectWorkspaces.find((workspace) => workspace.is_active)?.worker_card;
-  return workers.find((worker) => worker.id === projectWorkspaceWorkerId) ?? workers[0];
+  const projectDefaultWorkerId = snapshot?.projectDefaults.find(
+    (projectDefault) => projectDefault.is_active
+  )?.worker_card;
+  return (
+    workers.find((worker) => worker.id === taskOverrideWorkerId) ??
+    workers.find((worker) => worker.id === selectedWorkDirectory?.default_worker_card) ??
+    workers.find((worker) => worker.id === projectDefaultWorkerId) ??
+    workers.find((worker) => worker.id === projectWorkspaceWorkerId) ??
+    workers[0]
+  );
+}
+
+function resolveWorkDirectory(
+  snapshot: AgentPlatformProjectSnapshot | undefined,
+  workDirectories: AgentWorkDirectory[],
+  selectedWorkDirectoryId: string
+): AgentWorkDirectory | undefined {
+  const selected = resolveById(workDirectories, selectedWorkDirectoryId);
+  if (selected) return selected;
+  const taskOverrideDirectoryId = snapshot?.taskWorkDirectoryOverrides.find(
+    (override) => override.is_active
+  )?.work_directory;
+  const projectDefaultDirectoryId = snapshot?.projectDefaults.find(
+    (projectDefault) => projectDefault.is_active
+  )?.work_directory;
+  return (
+    workDirectories.find((directory) => directory.id === taskOverrideDirectoryId) ??
+    workDirectories.find((directory) => directory.id === projectDefaultDirectoryId) ??
+    workDirectories[0]
+  );
+}
+
+function resolveRepository(
+  snapshot: AgentPlatformProjectSnapshot | undefined,
+  repositories: AgentPlatformProjectSnapshot["repositories"],
+  selectedRepositoryId: string,
+  selectedWorkDirectory: AgentWorkDirectory | undefined
+): AgentPlatformProjectSnapshot["repositories"][number] | undefined {
+  const selected = resolveById(repositories, selectedRepositoryId);
+  if (selected) return selected;
+  const linkedRepositoryIds = new Set(
+    (snapshot?.workDirectoryRepositories ?? [])
+      .filter((link) => link.is_active && link.work_directory === selectedWorkDirectory?.id)
+      .map((link) => link.repository)
+  );
+  return repositories.find((repository) => linkedRepositoryIds.has(repository.id)) ?? repositories[0];
 }
 
 function resolveById<T extends { id: string }>(items: T[], selectedId: string): T | undefined {

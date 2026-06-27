@@ -4,22 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { FolderGit2 } from "lucide-react";
+import { WorkerDirectoryPage } from "@/components/agent-control-center/worker-directory-page";
 
-import { AgentControlCenterPage } from "@/components/agent-control-center/center-page";
-
-export default function WorkDirectoriesPage() {
-  return (
-    <AgentControlCenterPage
-      title="Work Directories"
-      subtitle="Project work directories, repositories, worker mount paths, branch policy, and worktree strategy."
-      Icon={FolderGit2}
-      lists={[
-        {
-          title: "Directory Registry",
-          items: ["Root Path", "Repositories", "Worker Mounts", "Worktree Strategy", "Recent Tasks"],
-        },
-      ]}
-    />
-  );
+export default function WorkDirectoriesPage({ params }: { params: { workspaceSlug: string } }) {
+  return <WorkerDirectoryPage initialView="work-directories" workspaceSlug={params.workspaceSlug} />;
 }

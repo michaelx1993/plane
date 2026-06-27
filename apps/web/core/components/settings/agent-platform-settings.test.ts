@@ -33,8 +33,17 @@ const agentCenterAgentsPageSource = read(
 const agentCenterPromptsPageSource = read(
   "apps/web/app/(all)/[workspaceSlug]/(projects)/agent-control-center/prompts/page.tsx"
 );
+const agentCenterWorkersPageSource = read(
+  "apps/web/app/(all)/[workspaceSlug]/(projects)/agent-control-center/workers/page.tsx"
+);
+const agentCenterWorkDirectoriesPageSource = read(
+  "apps/web/app/(all)/[workspaceSlug]/(projects)/agent-control-center/work-directories/page.tsx"
+);
 const agentCenterLibraryPageSource = read(
   "apps/web/core/components/agent-control-center/agent-prompt-library-page.tsx"
+);
+const agentCenterWorkerDirectoryPageSource = read(
+  "apps/web/core/components/agent-control-center/worker-directory-page.tsx"
 );
 const issueWidgetActionSource = read("apps/web/core/components/issues/issue-detail-widgets/action-buttons.tsx");
 const agentRunActionSource = read("apps/web/core/components/issues/issue-detail-widgets/agent-run-action-button.tsx");
@@ -130,7 +139,13 @@ assert.ok(
 );
 assert.ok(
   serviceSource.includes("getProjectSnapshot") &&
+    serviceSource.includes("getWorkDirectorySnapshot") &&
     serviceSource.includes("agent-worker-cards") &&
+    serviceSource.includes("agent-work-directories") &&
+    serviceSource.includes("agent-work-directory-repositories") &&
+    serviceSource.includes("agent-worker-mounts") &&
+    serviceSource.includes("agent-project-defaults") &&
+    serviceSource.includes("agent-task-work-directory-overrides") &&
     serviceSource.includes("agent-repositories") &&
     serviceSource.includes("createRunIntent") &&
     serviceSource.includes("agent-runs"),
@@ -172,9 +187,30 @@ assert.ok(
   "Agent Center library UI should expose real Agent, Prompt, Prompt Version, and Prompt Stack operations"
 );
 assert.ok(
+  agentCenterWorkersPageSource.includes("WorkerDirectoryPage") &&
+    agentCenterWorkersPageSource.includes('initialView="workers"') &&
+    agentCenterWorkDirectoriesPageSource.includes("WorkerDirectoryPage") &&
+    agentCenterWorkDirectoriesPageSource.includes('initialView="work-directories"'),
+  "Agent Center Workers and Work Directories routes should render the real worker directory UI"
+);
+assert.ok(
+  agentCenterWorkerDirectoryPageSource.includes("getWorkDirectorySnapshot") &&
+    agentCenterWorkerDirectoryPageSource.includes("createWorkerCard") &&
+    agentCenterWorkerDirectoryPageSource.includes("updateWorkerCard") &&
+    agentCenterWorkerDirectoryPageSource.includes("createWorkDirectory") &&
+    agentCenterWorkerDirectoryPageSource.includes("updateWorkDirectory") &&
+    agentCenterWorkerDirectoryPageSource.includes("createRepository") &&
+    agentCenterWorkerDirectoryPageSource.includes("createWorkDirectoryRepository") &&
+    agentCenterWorkerDirectoryPageSource.includes("createWorkerMount") &&
+    !agentCenterWorkerDirectoryPageSource.includes('Mac Studio Worker", "MBP Worker'),
+  "Agent Center worker directory UI should expose real Worker, Work Directory, Repository, and Mount operations"
+);
+assert.ok(
   projectPageSource.includes("createWorkerCard") &&
     projectPageSource.includes("createProjectWorkspace") &&
     projectPageSource.includes("createRepository") &&
+    projectPageSource.includes("createProjectDefault") &&
+    projectPageSource.includes("updateProjectDefault") &&
     projectPageSource.includes("meta_git_mode") &&
     projectPageSource.includes("credential_key") &&
     projectPageSource.includes("worktree_strategy"),
@@ -197,6 +233,9 @@ assert.ok(
     agentRunActionSource.includes('data-testid="agent-run-action-trigger"') &&
     agentRunActionSource.includes("promptStack") &&
     agentRunActionSource.includes("availableSecretKeys") &&
+    agentRunActionSource.includes("selectedWorkDirectory") &&
+    agentRunActionSource.includes("createTaskWorkDirectoryOverride") &&
+    agentRunActionSource.includes("updateTaskWorkDirectoryOverride") &&
     agentRunActionSource.includes("submitRunIntent") &&
     agentRunActionSource.includes("createRunIntent") &&
     agentRunActionSource.includes("copyRunIntent"),
@@ -225,6 +264,20 @@ for (const locale of ["en", "zh-CN", "zh-TW"]) {
     `${locale} Agent Center prompt archive label is required`
   );
   assert.ok(projectMessages.project_settings.agents.label, `${locale} project agent label is required`);
+  assert.ok(
+    projectMessages.project_settings.agents.work_directories_page_title,
+    `${locale} work directories page title is required`
+  );
+  assert.ok(
+    projectMessages.project_settings.agents.create_work_directory,
+    `${locale} create work directory label is required`
+  );
+  assert.ok(projectMessages.project_settings.agents.attach_repository, `${locale} attach repository label is required`);
+  assert.ok(projectMessages.project_settings.agents.create_mount, `${locale} create worker mount label is required`);
+  assert.ok(
+    projectMessages.project_settings.agents.save_project_default,
+    `${locale} project default save label is required`
+  );
   assert.ok(workItemMessages.issue.agent_run.action, `${locale} work item Agent run action is required`);
   assert.ok(workItemMessages.issue.agent_run.start, `${locale} work item Agent run start is required`);
   assert.ok(workItemMessages.issue.agent_run.queued, `${locale} work item Agent run queued is required`);

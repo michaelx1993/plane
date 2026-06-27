@@ -4,22 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { HardDrive } from "lucide-react";
+import { WorkerDirectoryPage } from "@/components/agent-control-center/worker-directory-page";
 
-import { AgentControlCenterPage } from "@/components/agent-control-center/center-page";
-
-export default function WorkersPage() {
-  return (
-    <AgentControlCenterPage
-      title="Workers"
-      subtitle="Execution hosts, capabilities, heartbeat, work directory access, and recent runs."
-      Icon={HardDrive}
-      lists={[
-        {
-          title: "Worker Cards",
-          items: ["Mac Studio Worker", "MBP Worker", "Remote Linux Worker"],
-        },
-      ]}
-    />
-  );
+export default function WorkersPage({ params }: { params: { workspaceSlug: string } }) {
+  return <WorkerDirectoryPage initialView="workers" workspaceSlug={params.workspaceSlug} />;
 }
