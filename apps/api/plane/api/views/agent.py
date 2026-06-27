@@ -21,24 +21,34 @@ from plane.api.serializers import (
     AgentPromptBindingSerializer,
     AgentPromptSerializer,
     AgentPromptVersionSerializer,
+    AgentProjectDefaultSerializer,
     AgentProjectWorkspaceSerializer,
     AgentRepositorySerializer,
     AgentRoleSerializer,
+    AgentTaskWorkDirectoryOverrideSerializer,
     AgentUserAgentSerializer,
     AgentUserSecretKeySerializer,
+    AgentWorkDirectoryRepositorySerializer,
+    AgentWorkDirectorySerializer,
     AgentWorkerCardSerializer,
+    AgentWorkerMountSerializer,
 )
 from plane.db.models import (
     AgentConfigOutbox,
     AgentPrompt,
     AgentPromptBinding,
     AgentPromptVersion,
+    AgentProjectDefault,
     AgentProjectWorkspace,
     AgentRepository,
     AgentRole,
+    AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
+    AgentWorkDirectory,
+    AgentWorkDirectoryRepository,
     AgentWorkerCard,
+    AgentWorkerMount,
     Issue,
     Project,
     Workspace,
@@ -296,6 +306,114 @@ class AgentRepositoryDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
     entity_type = "agent_repository"
 
 
+class AgentWorkDirectoryListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentWorkDirectory
+    serializer_class = AgentWorkDirectorySerializer
+    entity_type = "agent_work_directory"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("default_worker_card")
+
+
+class AgentWorkDirectoryDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentWorkDirectory
+    serializer_class = AgentWorkDirectorySerializer
+    entity_type = "agent_work_directory"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("default_worker_card")
+
+
+class AgentWorkDirectoryRepositoryListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentWorkDirectoryRepository
+    serializer_class = AgentWorkDirectoryRepositorySerializer
+    entity_type = "agent_work_directory_repository"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("work_directory", "repository")
+
+
+class AgentWorkDirectoryRepositoryDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentWorkDirectoryRepository
+    serializer_class = AgentWorkDirectoryRepositorySerializer
+    entity_type = "agent_work_directory_repository"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("work_directory", "repository")
+
+
+class AgentWorkerMountListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentWorkerMount
+    serializer_class = AgentWorkerMountSerializer
+    entity_type = "agent_worker_mount"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("work_directory", "worker_card")
+
+
+class AgentWorkerMountDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentWorkerMount
+    serializer_class = AgentWorkerMountSerializer
+    entity_type = "agent_worker_mount"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("work_directory", "worker_card")
+
+
+class AgentProjectDefaultListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentProjectDefault
+    serializer_class = AgentProjectDefaultSerializer
+    entity_type = "agent_project_default"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("project", "work_directory", "worker_card")
+
+
+class AgentProjectDefaultDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentProjectDefault
+    serializer_class = AgentProjectDefaultSerializer
+    entity_type = "agent_project_default"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("project", "work_directory", "worker_card")
+
+
+class AgentTaskWorkDirectoryOverrideListCreateAPIEndpoint(AgentConfigSourceListCreateAPIEndpoint):
+    model = AgentTaskWorkDirectoryOverride
+    serializer_class = AgentTaskWorkDirectoryOverrideSerializer
+    entity_type = "agent_task_work_directory_override"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("issue", "work_directory", "worker_card")
+
+
+class AgentTaskWorkDirectoryOverrideDetailAPIEndpoint(AgentConfigSourceDetailAPIEndpoint):
+    model = AgentTaskWorkDirectoryOverride
+    serializer_class = AgentTaskWorkDirectoryOverrideSerializer
+    entity_type = "agent_task_work_directory_override"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("issue", "work_directory", "worker_card")
+
+
+class AgentWorkDirectoryResolutionAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
+    use_read_replica = True
+
+    def get(self, request, slug):
+        project_id = request.GET.get("project_id")
+        work_item_id = request.GET.get("work_item_id")
+        worker_id = request.GET.get("worker_id")
+        if not project_id:
+            return Response({"error": "project_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        project = get_object_or_404(Project, id=project_id, workspace__slug=slug)
+        issue = _resolve_agent_run_issue(slug, project.id, str(work_item_id)) if work_item_id else None
+        selected = _resolve_work_directory_context(slug, project, issue, worker_id)
+        return Response(_build_work_directory_context_payload(selected))
+
+
 class AgentRunIntentAPIEndpoint(BaseAPIView):
     permission_classes = [WorkspaceEntityPermission]
     authentication_classes = [BaseSessionAuthentication, APIKeyAuthentication]
@@ -311,6 +429,7 @@ class AgentRunIntentAPIEndpoint(BaseAPIView):
         project_id = request.data.get("project_id")
         work_item_id = request.data.get("work_item_id")
         repository_id = request.data.get("repository_id")
+        work_directory_id = request.data.get("work_directory_id")
         agent_id = request.data.get("agent_id")
         worker_id = request.data.get("worker_id")
         if not project_id or not work_item_id:
@@ -336,6 +455,13 @@ class AgentRunIntentAPIEndpoint(BaseAPIView):
                 workspace__slug=slug,
                 project=project,
             )
+        work_directory = None
+        if work_directory_id:
+            work_directory = get_object_or_404(
+                AgentWorkDirectory,
+                id=work_directory_id,
+                workspace__slug=slug,
+            )
         worker = None
         if worker_id:
             worker = get_object_or_404(
@@ -344,7 +470,9 @@ class AgentRunIntentAPIEndpoint(BaseAPIView):
                 workspace__slug=slug,
             )
 
-        payload = _build_agent_run_intent_payload(request, slug, project, issue, agent, repository, worker)
+        selected = _resolve_work_directory_context(slug, project, issue, worker_id, work_directory=work_directory)
+        worker = worker or selected["worker"]
+        payload = _build_agent_run_intent_payload(request, slug, project, issue, agent, repository, worker, selected)
         headers = {"Content-Type": "application/json"}
         token = os.environ.get("AGENT_CONTROL_PLANE_TOKEN", "").strip()
         if token:
@@ -411,7 +539,16 @@ def _resolve_agent_run_issue(slug, project_id, work_item_id):
     raise Http404
 
 
-def _build_agent_run_intent_payload(request, slug, project, issue, agent, repository, worker):
+def _build_agent_run_intent_payload(
+    request,
+    slug,
+    project,
+    issue,
+    agent,
+    repository,
+    worker,
+    work_directory_context=None,
+):
     identifier = f"{project.identifier}-{issue.sequence_id}"
     payload = {
         "source": "plane",
@@ -445,6 +582,9 @@ def _build_agent_run_intent_payload(request, slug, project, issue, agent, reposi
             }
         )
 
+    if work_directory_context and work_directory_context["work_directory"]:
+        payload["workDirectory"] = _build_work_directory_context_payload(work_directory_context)
+
     if worker:
         payload.update(
             {
@@ -463,6 +603,134 @@ def _build_agent_run_intent_payload(request, slug, project, issue, agent, reposi
     if available_secret_keys:
         payload["availableSecretKeys"] = available_secret_keys
 
+    return payload
+
+
+def _resolve_work_directory_context(slug, project, issue=None, worker_id=None, work_directory=None):
+    task_override = None
+    project_default = None
+    if issue is not None:
+        task_override = (
+            AgentTaskWorkDirectoryOverride.objects.select_related("work_directory", "worker_card")
+            .filter(issue=issue, workspace__slug=slug, is_active=True)
+            .first()
+        )
+    project_default = (
+        AgentProjectDefault.objects.select_related("work_directory", "worker_card")
+        .filter(project=project, workspace__slug=slug, is_active=True)
+        .first()
+    )
+
+    source = "explicit" if work_directory is not None else "none"
+    if work_directory is None and task_override and task_override.work_directory:
+        work_directory = task_override.work_directory
+        source = "task_override"
+    if work_directory is None and project_default and project_default.work_directory:
+        work_directory = project_default.work_directory
+        source = "project_default"
+
+    worker = None
+    if worker_id:
+        worker = get_object_or_404(AgentWorkerCard, id=worker_id, workspace__slug=slug)
+    if worker is None and task_override and task_override.worker_card:
+        worker = task_override.worker_card
+    if worker is None and project_default and project_default.worker_card:
+        worker = project_default.worker_card
+    if worker is None and work_directory and work_directory.default_worker_card_id:
+        worker = work_directory.default_worker_card
+
+    mount = None
+    if work_directory and worker:
+        mount = (
+            AgentWorkerMount.objects.filter(
+                workspace__slug=slug,
+                work_directory=work_directory,
+                worker_card=worker,
+                is_active=True,
+            )
+            .select_related("work_directory", "worker_card")
+            .first()
+        )
+
+    repositories = []
+    if work_directory:
+        repositories = list(
+            AgentWorkDirectoryRepository.objects.filter(
+                workspace__slug=slug,
+                work_directory=work_directory,
+                is_active=True,
+            )
+            .select_related("repository")
+            .order_by("sort_order", "repository__name")
+        )
+
+    return {
+        "source": source,
+        "project": project,
+        "issue": issue,
+        "task_override": task_override,
+        "project_default": project_default,
+        "work_directory": work_directory,
+        "worker": worker,
+        "mount": mount,
+        "repositories": repositories,
+    }
+
+
+def _build_work_directory_context_payload(selected):
+    work_directory = selected["work_directory"]
+    worker = selected["worker"]
+    mount = selected["mount"]
+    payload = {
+        "source": selected["source"],
+        "projectId": str(selected["project"].id),
+        "workItemId": str(selected["issue"].id) if selected["issue"] else None,
+        "workDirectory": None,
+        "worker": None,
+        "mount": None,
+        "repositories": [],
+    }
+    if work_directory:
+        payload["workDirectory"] = {
+            "id": str(work_directory.id),
+            "key": work_directory.key,
+            "name": work_directory.name,
+            "rootPath": work_directory.root_path,
+            "worktreeStrategy": work_directory.worktree_strategy,
+            "branchPolicy": work_directory.branch_policy,
+            "prdPath": work_directory.prd_path,
+            "statusPath": work_directory.status_path,
+            "progressPath": work_directory.progress_path,
+        }
+    if worker:
+        payload["worker"] = {
+            "id": str(worker.id),
+            "key": worker.key,
+            "name": worker.name,
+            "endpoint": worker.worker_endpoint,
+        }
+    if mount:
+        payload["mount"] = {
+            "id": str(mount.id),
+            "localPath": mount.local_path,
+            "isDefault": mount.is_default,
+        }
+    for link in selected["repositories"]:
+        repository = link.repository
+        payload["repositories"].append(
+            {
+                "id": str(repository.id),
+                "key": repository.key,
+                "provider": repository.scm_provider or repository.provider,
+                "name": repository.name,
+                "fullName": repository.full_name,
+                "url": repository.clone_url or repository.url,
+                "relativePath": link.relative_path,
+                "defaultBranch": link.default_branch,
+                "worktreeStrategy": link.worktree_strategy,
+                "isRequired": link.is_required,
+            }
+        )
     return payload
 
 

@@ -10,12 +10,17 @@ from plane.db.models import (
     AgentPrompt,
     AgentPromptBinding,
     AgentPromptVersion,
+    AgentProjectDefault,
     AgentProjectWorkspace,
     AgentRepository,
     AgentRole,
+    AgentTaskWorkDirectoryOverride,
     AgentUserAgent,
     AgentUserSecretKey,
+    AgentWorkDirectory,
+    AgentWorkDirectoryRepository,
     AgentWorkerCard,
+    AgentWorkerMount,
     prompt_type_to_scope,
     scope_to_prompt_type,
 )
@@ -363,6 +368,197 @@ class AgentRepositorySerializer(AgentWorkspaceScopedSerializer):
         project = attrs.get("project")
         if project is not None and str(project.workspace_id) != str(workspace_id):
             raise serializers.ValidationError({"project": "Project must belong to the current workspace."})
+        return attrs
+
+
+class AgentWorkDirectorySerializer(AgentWorkspaceScopedSerializer):
+    repository_count = serializers.SerializerMethodField(read_only=True)
+    mount_count = serializers.SerializerMethodField(read_only=True)
+    default_worker_key = serializers.CharField(source="default_worker_card.key", read_only=True)
+
+    class Meta:
+        model = AgentWorkDirectory
+        fields = [
+            "id",
+            "workspace",
+            "key",
+            "name",
+            "description",
+            "root_path",
+            "default_worker_card",
+            "default_worker_key",
+            "worktree_strategy",
+            "branch_policy",
+            "prd_path",
+            "status_path",
+            "progress_path",
+            "repository_count",
+            "mount_count",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        self._assert_same_workspace(attrs, "default_worker_card")
+        return attrs
+
+    def get_repository_count(self, obj):
+        return obj.repositories.filter(is_active=True).count()
+
+    def get_mount_count(self, obj):
+        return obj.worker_mounts.filter(is_active=True).count()
+
+
+class AgentWorkDirectoryRepositorySerializer(AgentWorkspaceScopedSerializer):
+    repository_key = serializers.CharField(source="repository.key", read_only=True)
+    repository_name = serializers.CharField(source="repository.name", read_only=True)
+    repository_url = serializers.CharField(source="repository.clone_url", read_only=True)
+
+    class Meta:
+        model = AgentWorkDirectoryRepository
+        fields = [
+            "id",
+            "workspace",
+            "work_directory",
+            "repository",
+            "repository_key",
+            "repository_name",
+            "repository_url",
+            "relative_path",
+            "default_branch",
+            "worktree_strategy",
+            "sort_order",
+            "is_required",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+        validators = []
+
+    def validate(self, attrs):
+        self._assert_same_workspace(attrs, "work_directory", "repository")
+        work_directory = attrs.get("work_directory") or getattr(self.instance, "work_directory", None)
+        repository = attrs.get("repository") or getattr(self.instance, "repository", None)
+        if work_directory is not None and repository is not None:
+            queryset = AgentWorkDirectoryRepository.objects.filter(
+                work_directory=work_directory,
+                repository=repository,
+            )
+            if self.instance is not None:
+                queryset = queryset.exclude(id=self.instance.id)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {"repository": "Repository is already registered in this work directory."}
+                )
+        return attrs
+
+
+class AgentWorkerMountSerializer(AgentWorkspaceScopedSerializer):
+    worker_key = serializers.CharField(source="worker_card.key", read_only=True)
+    worker_name = serializers.CharField(source="worker_card.name", read_only=True)
+    work_directory_key = serializers.CharField(source="work_directory.key", read_only=True)
+
+    class Meta:
+        model = AgentWorkerMount
+        fields = [
+            "id",
+            "workspace",
+            "work_directory",
+            "work_directory_key",
+            "worker_card",
+            "worker_key",
+            "worker_name",
+            "local_path",
+            "is_default",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+        validators = []
+
+    def validate(self, attrs):
+        self._assert_same_workspace(attrs, "work_directory", "worker_card")
+        work_directory = attrs.get("work_directory") or getattr(self.instance, "work_directory", None)
+        worker_card = attrs.get("worker_card") or getattr(self.instance, "worker_card", None)
+        if work_directory is not None and worker_card is not None:
+            queryset = AgentWorkerMount.objects.filter(work_directory=work_directory, worker_card=worker_card)
+            if self.instance is not None:
+                queryset = queryset.exclude(id=self.instance.id)
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {"worker_card": "Worker already has a mount for this work directory."}
+                )
+        return attrs
+
+
+class AgentProjectDefaultSerializer(AgentWorkspaceScopedSerializer):
+    project_identifier = serializers.CharField(source="project.identifier", read_only=True)
+    work_directory_key = serializers.CharField(source="work_directory.key", read_only=True)
+    worker_key = serializers.CharField(source="worker_card.key", read_only=True)
+
+    class Meta:
+        model = AgentProjectDefault
+        fields = [
+            "id",
+            "workspace",
+            "project",
+            "project_identifier",
+            "work_directory",
+            "work_directory_key",
+            "worker_card",
+            "worker_key",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        workspace_id = self.context.get("workspace_id")
+        project = attrs.get("project")
+        if project is not None and str(project.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError({"project": "Project must belong to the current workspace."})
+        self._assert_same_workspace(attrs, "work_directory", "worker_card")
+        return attrs
+
+
+class AgentTaskWorkDirectoryOverrideSerializer(AgentWorkspaceScopedSerializer):
+    issue_sequence_id = serializers.IntegerField(source="issue.sequence_id", read_only=True)
+    work_directory_key = serializers.CharField(source="work_directory.key", read_only=True)
+    worker_key = serializers.CharField(source="worker_card.key", read_only=True)
+
+    class Meta:
+        model = AgentTaskWorkDirectoryOverride
+        fields = [
+            "id",
+            "workspace",
+            "issue",
+            "issue_sequence_id",
+            "work_directory",
+            "work_directory_key",
+            "worker_card",
+            "worker_key",
+            "target_branch",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "workspace", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        workspace_id = self.context.get("workspace_id")
+        issue = attrs.get("issue")
+        if issue is not None and str(issue.workspace_id) != str(workspace_id):
+            raise serializers.ValidationError({"issue": "Issue must belong to the current workspace."})
+        self._assert_same_workspace(attrs, "work_directory", "worker_card")
         return attrs
 
 

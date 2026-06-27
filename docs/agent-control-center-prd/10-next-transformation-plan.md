@@ -98,6 +98,16 @@ Last updated: 2026-06-26
 - Task 可以覆盖 Work Directory。
 - Worker mount 支持同一 Work Directory 在不同 Worker 上解析到不同本地路径。
 
+API contract：
+
+- `agent-worker-cards`：登记 MBP、Mac Studio 等可见 worker card。
+- `agent-work-directories`：登记逻辑 Work Directory、默认 worker、worktree strategy、PRD/status/progress 路径。
+- `agent-work-directory-repositories`：把一个或多个 repository 绑定到 Work Directory，并保存相对路径、默认分支、worktree strategy。
+- `agent-worker-mounts`：保存 Work Directory 在不同 worker 上的真实本地路径。
+- `agent-project-defaults`：保存 Project 默认 Work Directory / Worker。
+- Task Work Directory override endpoint：保存单个 task 的 Work Directory / Worker override。
+- `agent-work-directory-resolution`：按 project、task、worker 解析最终 Work Directory、mount 和 repository context。
+
 验收：
 
 - API 可以登记 Mac Studio / MBP worker。

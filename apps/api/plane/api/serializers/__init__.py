@@ -9,12 +9,17 @@ from .agent import (
     AgentPromptBindingSerializer,
     AgentPromptSerializer,
     AgentPromptVersionSerializer,
+    AgentProjectDefaultSerializer,
     AgentProjectWorkspaceSerializer,
     AgentRepositorySerializer,
     AgentRoleSerializer,
+    AgentTaskWorkDirectoryOverrideSerializer,
     AgentUserAgentSerializer,
     AgentUserSecretKeySerializer,
+    AgentWorkDirectoryRepositorySerializer,
+    AgentWorkDirectorySerializer,
     AgentWorkerCardSerializer,
+    AgentWorkerMountSerializer,
 )
 from .project import (
     ProjectSerializer,
